@@ -5,6 +5,14 @@
 //   supabase gen types typescript --project-id <ref> > packages/shared-types/src/database.ts
 // then re-export: `export type { Database } from "./database";`
 
+export type {
+  Database,
+  Tables,
+  TablesInsert,
+  TablesUpdate,
+  Enums,
+} from "./database";
+
 export type EntityType = "account" | "campaign" | "ad_group" | "product" | "category";
 
 export type RecommendationKind =

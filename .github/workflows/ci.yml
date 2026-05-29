@@ -13,6 +13,9 @@ jobs:
       matrix:
         package:
           - packages/profit-engine
+          - packages/identity-resolver
+          - packages/security
+          - packages/google-clients
           - services/api
           - services/workers
     steps:
@@ -76,7 +79,11 @@ jobs:
           create table auth.users (id uuid primary key default gen_random_uuid(), email text, raw_user_meta_data jsonb default '{}'::jsonb);
           create or replace function auth.uid() returns uuid language sql stable
             as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-          grant usage on schema public to anon, authenticated, service_role;
+          create schema if not exists extensions;
+          grant usage on schema public, extensions to anon, authenticated, service_role;
+          -- Supabase keeps `extensions` on the search_path; mirror that so the
+          -- `with schema extensions` extension types (citext) resolve unqualified.
+          alter database cueprofit set search_path to "$user", public, extensions;
           SQL
       - name: Apply migrations
         run: |
