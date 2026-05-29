@@ -1,0 +1,5 @@
+# TypeScript/JS workspaces only. Python packages (services/api, services/workers,
+# packages/profit-engine, packages/google-clients) are managed by uv, not pnpm.
+packages:
+  - "apps/*"
+  - "packages/shared-types"

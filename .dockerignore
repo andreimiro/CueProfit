@@ -1,0 +1,13 @@
+**/.venv
+**/node_modules
+**/.next
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/.git
+**/*.log
+apps/web
+infra
+supabase
+.env
+.env.*

@@ -1,0 +1,64 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.uv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Builds
+.next/
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*-key.json
+service-account*.json
+gcp-credentials*.json
+
+# Local MCP config holds a Supabase access token — keep it out of git.
+.mcp.json
+!.mcp.json.example
+
+# Local Codex config can hold MCP credentials.
+.codex/
+
+# Supabase
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+!*.tfvars.example
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.log
+
+# Coverage / test artifacts
+coverage/
+.coverage
+htmlcov/
+playwright-report/
+test-results/

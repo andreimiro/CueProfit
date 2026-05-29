@@ -1,0 +1,33 @@
+[project]
+name = "cueprofit-workers"
+version = "0.0.0"
+description = "CueProfit Cloud Run Jobs: sync, identity matching, profit recompute, modeling"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.27",
+    "pydantic-settings>=2.5",
+    "cueprofit-profit-engine",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+cueprofit-workers = "cueprofit_workers.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cueprofit_workers"]
+
+[tool.uv.sources]
+cueprofit-profit-engine = { path = "../../packages/profit-engine", editable = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.uv]
+package = true

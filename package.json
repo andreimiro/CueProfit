@@ -1,0 +1,21 @@
+{
+  "name": "cueprofit",
+  "version": "0.0.0",
+  "private": true,
+  "description": "CueProfit — Google Ads + Merchant Center profit-intelligence platform",
+  "packageManager": "pnpm@10.17.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "web:dev": "pnpm --filter @cueprofit/web dev",
+    "web:build": "pnpm --filter @cueprofit/web build",
+    "web:lint": "pnpm --filter @cueprofit/web lint",
+    "db:start": "supabase start",
+    "db:reset": "supabase db reset",
+    "db:diff": "supabase db diff",
+    "db:push": "supabase db push",
+    "py:test": "uv run --directory packages/profit-engine pytest",
+    "py:api": "uv run --directory services/api uvicorn cueprofit_api.main:app --reload"
+  }
+}
