@@ -1,8 +1,14 @@
-import { type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 import { updateSession } from "@/lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
+  const host = request.headers.get("host")?.split(":")[0];
+
+  if (host === "app.captioncue.shop" && request.nextUrl.pathname === "/") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
   return await updateSession(request);
 }
 
