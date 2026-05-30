@@ -41,6 +41,7 @@ export function MeasurementPage({
   subtitle,
   eyebrow,
   icon,
+  status,
   metrics,
   requirements,
   outputs,
@@ -51,6 +52,11 @@ export function MeasurementPage({
   subtitle: string;
   eyebrow: string;
   icon: IconName;
+  status?: {
+    label: string;
+    detail: string;
+    tone?: "ready" | "pending" | "error";
+  };
   metrics: Metric[];
   requirements: RequirementGroup[];
   outputs: Output[];
@@ -82,15 +88,31 @@ export function MeasurementPage({
                   <Icon name={icon} width={24} height={24} />
                 </span>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-profit">
-                    {eyebrow}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-profit">
+                      {eyebrow}
+                    </p>
+                    {status ? (
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                          status.tone === "error"
+                            ? "border-loss/30 bg-loss/10 text-loss"
+                            : status.tone === "ready"
+                              ? "border-profit/30 bg-profit/10 text-profit"
+                              : "border-amber/30 bg-amber/10 text-amber"
+                        }`}
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                        {status.label}
+                      </span>
+                    ) : null}
+                  </div>
                   <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight">
                     What this page needs to display
                   </h2>
                   <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">
-                    This is the operating view for the model: inputs, confidence, outputs and
-                    the next decision a marketer can make from the result.
+                    {status?.detail ??
+                      "This is the operating view for the model: inputs, confidence, outputs and the next decision a marketer can make from the result."}
                   </p>
                 </div>
               </div>
