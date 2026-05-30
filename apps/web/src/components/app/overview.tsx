@@ -1,16 +1,18 @@
 import type { ReactNode } from "react";
 
+import {
+  type AccountFact,
+  type Recommendation,
+  formatMoney,
+  netProfitBars,
+  severityTone,
+  summarizeAccountFacts,
+} from "@/lib/dashboard";
+
 import { EmptyState, Panel, PanelHeader, StatusTag } from "./cards";
 import { ConnectGoogleButton, DateRangePill, SearchField } from "./controls";
 import { Icon } from "./icons";
 import { PageHeader } from "./page-header";
-
-const KPIS = [
-  { label: "Net profit", hint: "After COGS, fees, returns and ad spend.", tone: "profit" },
-  { label: "POAS", hint: "Gross profit per unit of ad spend.", tone: "neutral" },
-  { label: "Wasted spend", hint: "Spend with no or negative return.", tone: "loss" },
-  { label: "Incremental profit", hint: "Modeled, with a confidence band.", tone: "profit" },
-] as const;
 
 const SETUP_STEPS = [
   {
@@ -35,7 +37,51 @@ const SETUP_STEPS = [
 
 const SKELETON_BARS = [42, 56, 49, 64, 58, 72, 60, 80, 74, 88, 70, 84];
 
-export function Overview({ currency = "RON" }: { currency?: string }) {
+const TONE_TEXT: Record<string, string> = {
+  loss: "text-loss",
+  profit: "text-profit",
+  fg: "text-fg",
+  muted: "text-muted",
+};
+
+export function Overview({
+  currency = "RON",
+  facts = [],
+  recommendations = [],
+}: {
+  currency?: string;
+  facts?: AccountFact[];
+  recommendations?: Recommendation[];
+}) {
+  const summary = summarizeAccountFacts(facts, currency);
+  const bars = netProfitBars(facts);
+  const kpis = [
+    {
+      label: "Net profit",
+      value: summary.hasData ? formatMoney(summary.net, summary.currency) : "—",
+      hint: "After COGS, fees, returns and ad spend.",
+      tone: summary.hasData ? (summary.net < 0 ? "loss" : "profit") : "neutral",
+    },
+    {
+      label: "POAS",
+      value: summary.poas != null ? `${summary.poas.toFixed(2)}×` : "—",
+      hint: "Gross profit per unit of ad spend.",
+      tone: "neutral",
+    },
+    {
+      label: "Wasted spend",
+      value: summary.hasData ? formatMoney(summary.waste, summary.currency) : "—",
+      hint: "Spend with no or negative return.",
+      tone: "loss",
+    },
+    {
+      label: "Incremental profit",
+      value: "—",
+      hint: "Modeled, with a confidence band.",
+      tone: "neutral",
+    },
+  ] as const;
+
   return (
     <div className="px-5 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto w-full max-w-[1760px] animate-reveal space-y-7">
@@ -65,7 +111,7 @@ export function Overview({ currency = "RON" }: { currency?: string }) {
             </div>
             <span className="inline-flex w-fit items-center gap-2 rounded-full border border-edge bg-panel px-3 py-1.5 text-xs font-semibold text-muted">
               <span className="h-1.5 w-1.5 rounded-full bg-amber" />
-              0 of 3 connected
+              {summary.hasData ? "Live data connected" : "0 of 3 connected"}
             </span>
           </div>
           <div className="grid gap-px bg-edge sm:grid-cols-3">
@@ -101,8 +147,8 @@ export function Overview({ currency = "RON" }: { currency?: string }) {
 
         {/* KPI row */}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {KPIS.map((kpi) => (
-            <KpiCard key={kpi.label} label={kpi.label} hint={kpi.hint} tone={kpi.tone} />
+          {kpis.map((kpi) => (
+            <KpiCard key={kpi.label} label={kpi.label} value={kpi.value} hint={kpi.hint} tone={kpi.tone} />
           ))}
         </div>
 
@@ -111,44 +157,70 @@ export function Overview({ currency = "RON" }: { currency?: string }) {
           <Panel>
             <PanelHeader
               title="Daily net profit"
-              hint="Spend-weighted contribution by day"
+              hint={summary.hasData ? formatMoney(summary.net, summary.currency) : "Spend-weighted contribution by day"}
               action={<DateRangePill />}
             />
             <div className="relative p-5">
               <div className="flex h-64 items-end gap-2 rounded-xl border border-edge bg-canvas/60 p-4">
-                {SKELETON_BARS.map((h, i) => (
+                {(summary.hasData ? bars : SKELETON_BARS.map((height, index) => ({ date: String(index), net: 0, height, loss: false }))).map((bar) => (
                   <span
-                    key={i}
-                    className="flex-1 rounded-t bg-edge"
-                    style={{ height: `${h}%`, opacity: 0.5 }}
+                    key={bar.date}
+                    title={summary.hasData ? `${bar.date}: ${formatMoney(bar.net, summary.currency)}` : undefined}
+                    className={`flex-1 rounded-t ${summary.hasData ? (bar.loss ? "bg-loss/60" : "bg-profit/70") : "bg-edge"}`}
+                    style={{ height: `${bar.height}%`, opacity: summary.hasData ? 1 : 0.5 }}
                   />
                 ))}
               </div>
-              <div className="absolute inset-0 flex items-center justify-center p-5">
-                <div className="flex max-w-xs flex-col items-center gap-3 rounded-2xl border border-edge bg-panel/90 px-6 py-5 text-center shadow-design backdrop-blur">
-                  <span className="grid h-11 w-11 place-items-center rounded-2xl border border-edge bg-panel-2 text-faint">
-                    <Icon name="trendUp" width={22} height={22} />
-                  </span>
-                  <p className="font-display text-base font-semibold">
-                    Your profit curve appears after the first sync
-                  </p>
-                  <p className="text-sm leading-6 text-muted">
-                    Connect Google Ads to chart net profit by day, with loss days flagged.
-                  </p>
-                  <ConnectGoogleButton variant="secondary" />
+              {!summary.hasData ? (
+                <div className="absolute inset-0 flex items-center justify-center p-5">
+                  <div className="flex max-w-xs flex-col items-center gap-3 rounded-2xl border border-edge bg-panel/90 px-6 py-5 text-center shadow-design backdrop-blur">
+                    <span className="grid h-11 w-11 place-items-center rounded-2xl border border-edge bg-panel-2 text-faint">
+                      <Icon name="trendUp" width={22} height={22} />
+                    </span>
+                    <p className="font-display text-base font-semibold">
+                      Your profit curve appears after the first sync
+                    </p>
+                    <p className="text-sm leading-6 text-muted">
+                      Connect Google Ads to chart net profit by day, with loss days flagged.
+                    </p>
+                    <ConnectGoogleButton variant="secondary" />
+                  </div>
                 </div>
-              </div>
+              ) : null}
             </div>
           </Panel>
 
           <Panel className="flex flex-col">
             <PanelHeader title="Recommended next actions" hint="Ranked by profit impact" />
-            <EmptyState
-              icon="recommendations"
-              title="No recommendations yet"
-              description="Once we can see profit, we rank what to stop, fix, or scale — each with an estimated weekly impact."
-              action={<ConnectGoogleButton variant="secondary" />}
-            />
+            {recommendations.length > 0 ? (
+              <div className="divide-y divide-edge">
+                {recommendations.map((rec) => (
+                  <div key={`${rec.kind}-${rec.entity_type}-${rec.entity_id}`} className="grid grid-cols-[1fr_auto] gap-4 p-5">
+                    <div>
+                      <p className="font-medium text-fg">{rec.title}</p>
+                      <p className="mt-1 text-xs uppercase tracking-wide text-faint">
+                        {rec.kind.replace(/_/g, " ")} · {rec.entity_type}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-mono text-sm ${TONE_TEXT[severityTone(rec.severity)] ?? "text-fg"}`}>
+                        {rec.expected_impact != null
+                          ? formatMoney(Number(rec.expected_impact), rec.impact_currency)
+                          : "—"}
+                      </p>
+                      <p className="mt-1 text-xs uppercase tracking-wide text-faint">{rec.severity}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon="recommendations"
+                title="No recommendations yet"
+                description="Once we can see profit, we rank what to stop, fix, or scale — each with an estimated weekly impact."
+                action={<ConnectGoogleButton variant="secondary" />}
+              />
+            )}
           </Panel>
         </div>
 
@@ -188,10 +260,12 @@ export function Overview({ currency = "RON" }: { currency?: string }) {
 
 function KpiCard({
   label,
+  value,
   hint,
   tone,
 }: {
   label: string;
+  value: string;
   hint: string;
   tone: "profit" | "loss" | "neutral";
 }): ReactNode {
@@ -208,7 +282,7 @@ function KpiCard({
           Awaiting data
         </span>
       </div>
-      <p className="mt-6 font-mono text-4xl font-semibold nums text-faint">—</p>
+      <p className={`mt-6 font-mono text-4xl font-semibold nums ${value === "—" ? "text-faint" : TONE_TEXT[tone] ?? "text-fg"}`}>{value}</p>
       <svg
         className="mt-4 w-full text-edge"
         height="22"
