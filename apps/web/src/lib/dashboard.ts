@@ -87,3 +87,106 @@ const SEVERITY_TONE: Record<string, string> = {
 export function severityTone(severity: string): string {
   return SEVERITY_TONE[severity] ?? "muted";
 }
+
+// ── Campaign / product detail tables ─────────────────────────────────────────
+export type EntityFact = {
+  entity_id: string;
+  spend: number | string | null;
+  revenue: number | string | null;
+  gross_profit_before_ads: number | string | null;
+  net_profit: number | string | null;
+  waste_amount: number | string | null;
+  poas: number | string | null;
+  break_even_roas: number | string | null;
+  confidence?: string | null;
+  currency: string | null;
+};
+
+export type EntityRow = {
+  entityId: string;
+  spend: number;
+  revenue: number;
+  net: number;
+  waste: number;
+  poas: number | null;
+  roas: number | null;
+  breakEvenRoas: number | null;
+  confidence: string | null;
+  currency: string | null;
+};
+
+const CONF_RANK: Record<string, number> = { low: 0, medium: 1, high: 2 };
+
+/** Aggregate daily entity facts (campaign or product) per entity over the period,
+ *  worst net profit first. Ratios are recomputed from the summed money. */
+export function aggregateEntityFacts(facts: EntityFact[]): EntityRow[] {
+  const groups = new Map<
+    string,
+    { spend: number; revenue: number; gross: number; net: number; waste: number; confs: string[]; currency: string | null }
+  >();
+  for (const f of facts) {
+    const id = String(f.entity_id);
+    const g = groups.get(id) ?? { spend: 0, revenue: 0, gross: 0, net: 0, waste: 0, confs: [], currency: null };
+    g.spend += num(f.spend);
+    g.revenue += num(f.revenue);
+    g.gross += num(f.gross_profit_before_ads);
+    g.net += num(f.net_profit);
+    g.waste += num(f.waste_amount);
+    if (f.confidence) g.confs.push(f.confidence);
+    if (!g.currency && f.currency) g.currency = f.currency;
+    groups.set(id, g);
+  }
+  const rows: EntityRow[] = [];
+  for (const [entityId, g] of groups) {
+    rows.push({
+      entityId,
+      spend: g.spend,
+      revenue: g.revenue,
+      net: g.net,
+      waste: g.waste,
+      poas: g.spend > 0 ? g.gross / g.spend : null,
+      roas: g.spend > 0 ? g.revenue / g.spend : null,
+      breakEvenRoas: g.gross > 0 ? g.revenue / g.gross : null,
+      // worst (lowest-rank) confidence across the entity's days
+      confidence: g.confs.length
+        ? g.confs.reduce((w, c) => ((CONF_RANK[c] ?? 0) < (CONF_RANK[w] ?? 0) ? c : w))
+        : null,
+      currency: g.currency,
+    });
+  }
+  return rows.sort((a, b) => a.net - b.net);
+}
+
+export type CampaignMeta = { name: string | null; type: string | null; status: string | null };
+
+type CampaignStatRow = {
+  campaign_id: number | string;
+  campaign_name: string | null;
+  campaign_type: string | null;
+  status: string | null;
+};
+
+/** First non-null name/type/status per campaign_id, keyed by string id (matches fact entity_id). */
+export function campaignMetaById(rows: CampaignStatRow[]): Map<string, CampaignMeta> {
+  const map = new Map<string, CampaignMeta>();
+  for (const r of rows) {
+    const id = String(r.campaign_id);
+    const prev = map.get(id);
+    map.set(id, {
+      name: prev?.name ?? r.campaign_name ?? null,
+      type: prev?.type ?? r.campaign_type ?? null,
+      status: prev?.status ?? r.status ?? null,
+    });
+  }
+  return map;
+}
+
+export type EntityAction = "Scale" | "Hold" | "Cap" | "Pause";
+
+/** A coarse next-action from the summed numbers (mirrors the rules-engine cascade). */
+export function deriveAction(row: { spend: number; net: number; revenue: number; poas: number | null }): EntityAction {
+  if (row.spend < 1) return "Hold";
+  if (row.net < 0) return row.revenue <= 0 ? "Pause" : "Cap";
+  if ((row.poas ?? 0) >= 1.2) return "Scale";
+  return "Hold";
+}
