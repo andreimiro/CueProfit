@@ -5,6 +5,10 @@ import { useSearchParams } from "next/navigation";
 const MESSAGES: Record<string, { tone: "ok" | "err"; text: string }> = {
   "connect=success": { tone: "ok", text: "Google Ads connected — sync is starting." },
   "connect=error": { tone: "err", text: "Google Ads connection failed. Try again from Settings." },
+  "connect=no_workspace": {
+    tone: "err",
+    text: "We couldn't create your workspace. Sign out and back in, or contact support if this persists.",
+  },
   "merchant=success": { tone: "ok", text: "Merchant Center connected — catalog sync is starting." },
   "merchant=error": {
     tone: "err",
