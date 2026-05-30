@@ -1,41 +1,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { ensurePersonalWorkspace } from "@/lib/ensure-workspace";
+
 type WorkspaceResult =
   | { ok: true; workspaceId: string }
   | { ok: false; redirect: string };
 
 /** Resolve the user's workspace for OAuth connect flows (create one if missing). */
 export async function getWorkspaceForConnect(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
   userId: string,
-  requestUrl: string,
+  _requestUrl: string,
 ): Promise<WorkspaceResult> {
-  const { data: memberships } = await supabase
-    .from("workspace_members")
-    .select("workspace_id")
-    .limit(1);
-
-  let workspaceId = (memberships?.[0] as { workspace_id?: string } | undefined)?.workspace_id;
-  if (workspaceId) {
-    return { ok: true, workspaceId };
-  }
-
-  const { data: workspace, error } = await supabase
-    .from("workspaces")
-    .insert({
-      name: "Personal workspace",
-      currency: "RON",
-      created_by: userId,
-    })
-    .select("id")
-    .single();
-
-  workspaceId = (workspace as { id?: string } | null)?.id;
-  if (error || !workspaceId) {
-    return { ok: false, redirect: "/dashboard?connect=no_workspace" };
-  }
-
-  return { ok: true, workspaceId };
+  return ensurePersonalWorkspace(userId);
 }
 
 export type SetupStatus = {

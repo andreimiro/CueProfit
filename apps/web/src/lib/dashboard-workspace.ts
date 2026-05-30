@@ -1,6 +1,7 @@
 import { cache } from "react";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ensurePersonalWorkspace } from "@/lib/ensure-workspace";
 import { createClient } from "@/lib/supabase/server";
 import {
   getWorkspaceSources,
@@ -29,9 +30,18 @@ const emptySources: WorkspaceSources = {
 /** Cached per request — layout + pages share one membership/sources load. */
 export const loadDashboardWorkspace = cache(async (): Promise<DashboardWorkspace> => {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    await ensurePersonalWorkspace(user.id);
+  }
+
   const { data: memberships } = await supabase
     .from("workspace_members")
     .select("workspace_id, workspaces(name, currency)")
+    .eq("user_id", user?.id ?? "")
     .order("created_at", { ascending: true })
     .limit(1);
 
