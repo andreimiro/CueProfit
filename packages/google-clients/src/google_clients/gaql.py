@@ -44,12 +44,95 @@ PRODUCT_DAILY_FIELDS: list[str] = [
 ]
 
 CONVERSION_ACTION_FIELDS: list[str] = [
+    "customer.id",
     "conversion_action.id",
     "conversion_action.name",
     "conversion_action.category",
     "conversion_action.type",
     "conversion_action.status",
     "conversion_action.primary_for_goal",
+]
+
+CUSTOMER_FIELDS: list[str] = [
+    "customer.id",
+    "customer.descriptive_name",
+    "customer.currency_code",
+    "customer.time_zone",
+    "customer.status",
+    "customer.manager",
+    "customer.test_account",
+    "customer.optimization_score",
+]
+
+SEARCH_TERM_DAILY_FIELDS: list[str] = [
+    "customer.id",
+    "customer.currency_code",
+    "campaign.id",
+    "ad_group.id",
+    "search_term_view.search_term",
+    "segments.date",
+    "segments.device",
+    "metrics.impressions",
+    "metrics.clicks",
+    "metrics.cost_micros",
+    "metrics.conversions",
+    "metrics.conversions_value",
+]
+
+KEYWORD_DAILY_FIELDS: list[str] = [
+    "customer.id",
+    "customer.currency_code",
+    "campaign.id",
+    "ad_group.id",
+    "ad_group_criterion.criterion_id",
+    "ad_group_criterion.keyword.text",
+    "ad_group_criterion.keyword.match_type",
+    "segments.date",
+    "segments.device",
+    "metrics.impressions",
+    "metrics.clicks",
+    "metrics.cost_micros",
+    "metrics.conversions",
+    "metrics.conversions_value",
+]
+
+GEOGRAPHIC_DAILY_FIELDS: list[str] = [
+    "customer.id",
+    "customer.currency_code",
+    "campaign.id",
+    "geographic_view.country_criterion_id",
+    "segments.date",
+    "segments.device",
+    "metrics.impressions",
+    "metrics.clicks",
+    "metrics.cost_micros",
+    "metrics.conversions",
+    "metrics.conversions_value",
+]
+
+RECOMMENDATION_FIELDS: list[str] = [
+    "customer.id",
+    "recommendation.resource_name",
+    "recommendation.type",
+    "recommendation.campaign",
+    "recommendation.impact.base_metrics.cost_micros",
+    "recommendation.impact.potential_metrics.cost_micros",
+    "recommendation.impact.base_metrics.conversions",
+    "recommendation.impact.potential_metrics.conversions",
+    "recommendation.impact.base_metrics.conversions_value",
+    "recommendation.impact.potential_metrics.conversions_value",
+]
+
+CHANGE_EVENT_FIELDS: list[str] = [
+    "customer.id",
+    "change_event.resource_name",
+    "change_event.change_date_time",
+    "change_event.change_resource_type",
+    "change_event.changed_fields",
+    "change_event.client_type",
+    "change_event.user_email",
+    "change_event.old_resource",
+    "change_event.new_resource",
 ]
 
 
@@ -81,3 +164,31 @@ def product_daily_query(start: str, end: str) -> str:
 
 def conversion_actions_query() -> str:
     return _select(CONVERSION_ACTION_FIELDS, "conversion_action")
+
+
+def customer_query() -> str:
+    return _select(CUSTOMER_FIELDS, "customer")
+
+
+def search_term_daily_query(start: str, end: str) -> str:
+    return _select(SEARCH_TERM_DAILY_FIELDS, "search_term_view", _date_between(start, end))
+
+
+def keyword_daily_query(start: str, end: str) -> str:
+    return _select(KEYWORD_DAILY_FIELDS, "keyword_view", _date_between(start, end))
+
+
+def geographic_daily_query(start: str, end: str) -> str:
+    return _select(GEOGRAPHIC_DAILY_FIELDS, "geographic_view", _date_between(start, end))
+
+
+def recommendation_query() -> str:
+    return _select(RECOMMENDATION_FIELDS, "recommendation")
+
+
+def change_events_query(start: str, end: str) -> str:
+    where = (
+        "change_event.change_date_time BETWEEN "
+        f"'{_validate_date(start)}' AND '{_validate_date(end)}'"
+    )
+    return _select(CHANGE_EVENT_FIELDS, "change_event", where)
