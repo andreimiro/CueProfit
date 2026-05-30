@@ -20,6 +20,9 @@ build/
 out/
 *.tsbuildinfo
 
+# Playwright MCP run artifacts (console logs / page snapshots)
+**/.playwright-mcp/
+
 # Env / secrets
 .env
 .env.*

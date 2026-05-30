@@ -21,6 +21,7 @@ export default async function ProductsPage() {
   const supabase = await createClient();
 
   let rows: ReturnType<typeof aggregateEntityFacts> = [];
+  const titleByItem = new Map<string, string>();
   if (workspaceId) {
     const since = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
     const { data } = await supabase
@@ -30,6 +31,41 @@ export default async function ProductsPage() {
       .eq("entity_type", "product")
       .gte("date", since);
     rows = aggregateEntityFacts((data ?? []) as EntityFact[]);
+
+    if (rows.length > 0) {
+      // Resolve SKU titles: ads_item_id → product_id (resolver) → products.title,
+      // with a direct products.offer_id == ads_item_id fallback.
+      const [mapRes, prodRes] = await Promise.all([
+        supabase
+          .from("product_identity_map")
+          .select("ads_item_id,product_id")
+          .eq("workspace_id", workspaceId)
+          .limit(5000),
+        supabase
+          .from("products")
+          .select("id,offer_id,title")
+          .eq("workspace_id", workspaceId)
+          .limit(5000),
+      ]);
+
+      const titleById = new Map<string, string>();
+      const titleByOffer = new Map<string, string>();
+      for (const p of (prodRes.data ?? []) as { id: string; offer_id: string | null; title: string | null }[]) {
+        if (p.title) {
+          titleById.set(String(p.id), p.title);
+          if (p.offer_id) titleByOffer.set(String(p.offer_id), p.title);
+        }
+      }
+      const productIdByItem = new Map<string, string>();
+      for (const m of (mapRes.data ?? []) as { ads_item_id: string; product_id: string | null }[]) {
+        if (m.product_id) productIdByItem.set(String(m.ads_item_id), String(m.product_id));
+      }
+      for (const row of rows) {
+        const viaMap = productIdByItem.get(row.entityId);
+        const title = (viaMap ? titleById.get(viaMap) : undefined) ?? titleByOffer.get(row.entityId);
+        if (title) titleByItem.set(row.entityId, title);
+      }
+    }
   }
 
   return (
@@ -60,11 +96,17 @@ export default async function ProductsPage() {
                   {rows.map((row) => {
                     const cur = row.currency ?? currency;
                     const badge = COST_BADGE[row.confidence ?? "low"] ?? COST_BADGE.low;
+                    const title = titleByItem.get(row.entityId);
                     return (
                       <div key={row.entityId} className={`grid ${COLS} items-center gap-4 px-5 py-4`}>
-                        <p className="truncate font-mono text-sm text-fg" title={row.entityId}>
-                          {row.entityId}
-                        </p>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-fg" title={title ?? row.entityId}>
+                            {title ?? row.entityId}
+                          </p>
+                          {title ? (
+                            <p className="mt-0.5 truncate font-mono text-xs text-faint">{row.entityId}</p>
+                          ) : null}
+                        </div>
                         <p className={`text-right font-mono text-sm ${row.net < 0 ? "text-loss" : "text-profit"}`}>
                           {formatMoney(row.net, cur)}
                         </p>
