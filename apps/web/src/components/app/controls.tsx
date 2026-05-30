@@ -72,34 +72,5 @@ export function AddProductCostsButton({
   );
 }
 
-export function DateRangePill({ label = "Last 7 days" }: { label?: string }) {
-  return (
-    <button
-      type="button"
-      className="inline-flex items-center gap-2 rounded-xl border border-edge bg-panel px-3.5 py-2.5 text-sm font-medium text-muted transition hover:border-profit/30 hover:text-fg"
-    >
-      <Icon name="calendar" width={16} height={16} className="text-faint" />
-      {label}
-      <Icon name="chevronDown" width={15} height={15} className="text-faint" />
-    </button>
-  );
-}
-
-export function SearchField() {
-  return (
-    <div className="relative hidden md:block">
-      <Icon
-        name="search"
-        width={16}
-        height={16}
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint"
-      />
-      <input
-        type="search"
-        placeholder="Search campaigns, products…"
-        aria-label="Search"
-        className="w-52 rounded-xl border border-edge bg-panel py-2.5 pl-9 pr-3 text-sm text-fg outline-none transition placeholder:text-faint focus:border-profit/40 lg:w-64"
-      />
-    </div>
-  );
-}
+// DateRangePill + SearchField now live in date-range-picker.tsx / search-field.tsx
+// (client components that actually drive the ?range and ?q params).

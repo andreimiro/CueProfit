@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { Brand, MobileNav, Sidebar } from "@/components/app/sidebar";
 import { ConnectFlash } from "@/components/app/connect-flash";
 import { WorkspaceSourcesCompact } from "@/components/app/workspace-sources-compact";
-import { WorkspaceStatusStrip } from "@/components/app/workspace-status-strip";
+import { WorkspaceTopbar } from "@/components/app/workspace-topbar";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { loadDashboardWorkspace } from "@/lib/dashboard-workspace";
@@ -30,7 +30,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   return (
     <div className="min-h-screen bg-canvas">
       {/* Persistent static sidebar (desktop) */}
-      <Sidebar workspaceName={workspaceName} userEmail={user.email ?? ""} sources={sources} />
+      <Sidebar workspaceName={workspaceName} userEmail={user.email ?? ""} />
 
       {/* Mobile header + nav (sidebar is hidden below lg) */}
       <header className="sticky top-0 z-20 flex flex-col gap-3 border-b border-edge bg-panel/85 px-5 py-3 backdrop-blur-xl lg:hidden">
@@ -47,7 +47,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
       {/* Content fills all remaining width to the right of the sidebar */}
       <div className="lg:pl-64">
-        <WorkspaceStatusStrip sources={sources} />
+        <WorkspaceTopbar sources={sources} />
         <Suspense fallback={null}>
           <ConnectFlash />
         </Suspense>
