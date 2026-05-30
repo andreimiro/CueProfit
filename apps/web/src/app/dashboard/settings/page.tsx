@@ -1,10 +1,14 @@
 import type { ReactNode } from "react";
 
+import Link from "next/link";
+
+import { ConnectGoogleButton, ConnectMerchantButton } from "@/components/app/controls";
 import { Panel, PanelHeader } from "@/components/app/cards";
 import { PageHeader } from "@/components/app/page-header";
+import { SyncNowButton } from "@/components/app/sync-now-button";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { loadDashboardWorkspace } from "@/lib/dashboard-workspace";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -20,21 +24,8 @@ export default async function SettingsPage() {
     .select("workspace_id, role, workspaces(name, currency)");
 
   const membership = memberships?.[0];
-  const workspaceId = membership?.workspace_id as string | undefined;
   const role = (membership?.role as string | undefined) ?? "owner";
-  const workspace =
-    (membership?.workspaces as { name?: string; currency?: string } | null) ?? null;
-  let hasGoogleAdsConnection = false;
-  if (workspaceId) {
-    const { data: connections } = await createAdminClient()
-      .from("oauth_connections")
-      .select("id")
-      .eq("workspace_id", workspaceId)
-      .eq("provider", "google_ads")
-      .eq("status", "active")
-      .limit(1);
-    hasGoogleAdsConnection = Boolean(connections?.length);
-  }
+  const { sources, workspaceName, currency, workspaceId } = await loadDashboardWorkspace();
 
   return (
     <div className="px-5 py-6 sm:px-8 lg:px-10 lg:py-8">
@@ -57,8 +48,8 @@ export default async function SettingsPage() {
           <Panel>
             <PanelHeader title="Workspace" hint="Reporting currency applies across the dashboard" />
             <div className="divide-y divide-edge">
-              <Row label="Name" value={workspace?.name ?? "Personal workspace"} />
-              <Row label="Reporting currency" value={workspace?.currency ?? "RON"} mono />
+              <Row label="Name" value={workspaceName} />
+              <Row label="Reporting currency" value={currency} mono />
               <Row label="Your role" value={role} />
             </div>
           </Panel>
@@ -75,11 +66,64 @@ export default async function SettingsPage() {
           </Panel>
 
           <Panel>
-            <PanelHeader title="Data sources" hint="Connections power your profit numbers" />
+            <PanelHeader title="Data sources" hint="One-time authorization per workspace" />
             <div className="divide-y divide-edge">
-              <Row label="Google Ads" value={hasGoogleAdsConnection ? "Connected" : "Not connected"} />
-              <Row label="Merchant Center" value="Not connected" />
-              <Row label="Product costs" value="Not set" />
+              <Row
+                label="Google Ads"
+                value={
+                  sources.googleAds.connected
+                    ? sources.googleAds.label ?? "Connected"
+                    : "Not connected"
+                }
+                detail={
+                  sources.googleAds.connected
+                    ? sources.googleAds.syncState === "syncing"
+                      ? "Initial sync in progress"
+                      : sources.googleAds.lastSyncedAt
+                        ? `Last synced ${formatRelative(sources.googleAds.lastSyncedAt)}`
+                        : "Connected"
+                    : undefined
+                }
+                action={
+                  sources.googleAds.connected && workspaceId ? (
+                    <SyncNowButton workspaceId={workspaceId} />
+                  ) : !sources.googleAds.connected ? (
+                    <ConnectGoogleButton variant="secondary" />
+                  ) : undefined
+                }
+              />
+              <Row
+                label="Merchant Center"
+                value={
+                  sources.merchant.connected
+                    ? sources.merchant.label ?? "Connected"
+                    : "Not connected"
+                }
+                detail={
+                  sources.merchant.connected && sources.merchant.syncState === "syncing"
+                    ? "Catalog sync in progress"
+                    : undefined
+                }
+                action={
+                  !sources.merchant.connected && sources.hasGoogleAdsConnection ? (
+                    <ConnectMerchantButton variant="secondary" />
+                  ) : undefined
+                }
+              />
+              <Row
+                label="Product costs"
+                value={sources.hasProductCosts ? "Configured" : "Not set"}
+                action={
+                  !sources.hasProductCosts && sources.hasGoogleAdsConnection ? (
+                    <Link
+                      href="/dashboard/costs"
+                      className="rounded-lg border border-edge bg-panel px-3 py-1.5 text-xs font-semibold text-fg transition hover:border-profit/40"
+                    >
+                      Add costs
+                    </Link>
+                  ) : undefined
+                }
+              />
             </div>
           </Panel>
         </div>
@@ -88,21 +132,41 @@ export default async function SettingsPage() {
   );
 }
 
+function formatRelative(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
 function Row({
   label,
   value,
+  detail,
   mono,
+  action,
 }: {
   label: string;
   value: ReactNode;
+  detail?: string;
   mono?: boolean;
+  action?: ReactNode;
 }) {
   return (
     <div className="flex items-center justify-between gap-4 px-5 py-4">
       <span className="text-sm text-muted">{label}</span>
-      <span className={`text-sm font-medium text-fg ${mono ? "font-mono nums" : ""}`}>
-        {value}
-      </span>
+      <div className="flex items-center gap-3 text-right">
+        <div>
+          <span className={`block text-sm font-medium text-fg ${mono ? "font-mono nums" : ""}`}>
+            {value}
+          </span>
+          {detail ? <span className="block text-xs text-faint">{detail}</span> : null}
+        </div>
+        {action}
+      </div>
     </div>
   );
 }

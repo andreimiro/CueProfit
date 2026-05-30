@@ -50,6 +50,8 @@ def sync_google_ads(
             run_id=run_id, status="success", rows_written=n_campaign + n_product,
             cursor={"start": start, "end": end, "customer_id": str(customer_id)}, error=None,
         )
+        if connection_id:
+            store.mark_connection_synced(connection_id=connection_id, workspace_id=workspace_id)
         return {"campaign_rows": n_campaign, "product_rows": n_product, "range": [start, end]}
     except Exception as exc:
         store.finish_sync_run(

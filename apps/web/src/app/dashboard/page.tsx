@@ -1,28 +1,30 @@
 import { Overview } from "@/components/app/overview";
-import { type AccountFact, type Recommendation } from "@/lib/dashboard";
-import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  type AccountFact,
+  type CampaignMeta,
+  type EntityFact,
+  type Recommendation,
+  aggregateEntityFacts,
+  campaignMetaById,
+} from "@/lib/dashboard";
+import { loadDashboardWorkspace } from "@/lib/dashboard-workspace";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function DashboardPage() {
+  const { workspaceId, currency, sources } = await loadDashboardWorkspace();
   const supabase = await createClient();
-  const { data: memberships } = await supabase
-    .from("workspace_members")
-    .select("workspace_id, workspaces(name, currency)");
-
-  const membership = memberships?.[0];
-  const workspaceId = membership?.workspace_id as string | undefined;
-  const workspace = membership?.workspaces as { name?: string; currency?: string } | null;
 
   let facts: AccountFact[] = [];
   let recommendations: Recommendation[] = [];
-  let hasGoogleAdsConnection = false;
+  let campaignRows: ReturnType<typeof aggregateEntityFacts> = [];
+  let campaignMeta = new Map<string, CampaignMeta>();
+
   if (workspaceId) {
     const since = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
-    const admin = createAdminClient();
-    const [factsRes, recsRes, connectionsRes] = await Promise.all([
+    const [factsRes, recsRes, campaignFactsRes, statsRes] = await Promise.all([
       supabase
         .from("profit_daily_facts")
         .select("date,spend,revenue,gross_profit_before_ads,net_profit,waste_amount,currency")
@@ -37,25 +39,36 @@ export default async function DashboardPage() {
         .eq("status", "open")
         .order("expected_impact", { ascending: false, nullsFirst: false })
         .limit(6),
-      admin
-        .from("oauth_connections")
-        .select("id")
+      supabase
+        .from("profit_daily_facts")
+        .select("entity_id,spend,revenue,gross_profit_before_ads,net_profit,waste_amount,poas,break_even_roas,currency")
         .eq("workspace_id", workspaceId)
-        .eq("provider", "google_ads")
-        .eq("status", "active")
-        .limit(1),
+        .eq("entity_type", "campaign")
+        .gte("date", since),
+      supabase
+        .from("campaign_daily_stats")
+        .select("campaign_id,campaign_name,campaign_type,status")
+        .eq("workspace_id", workspaceId)
+        .gte("date", since),
     ]);
     facts = (factsRes.data ?? []) as AccountFact[];
     recommendations = (recsRes.data ?? []) as Recommendation[];
-    hasGoogleAdsConnection = Boolean(connectionsRes.data?.length);
+    campaignRows = aggregateEntityFacts((campaignFactsRes.data ?? []) as EntityFact[]);
+    campaignMeta = campaignMetaById(statsRes.data ?? []);
   }
 
   return (
     <Overview
-      currency={workspace?.currency ?? "RON"}
+      currency={currency}
       facts={facts}
-      hasGoogleAdsConnection={hasGoogleAdsConnection}
+      sources={sources}
+      hasGoogleAdsConnection={sources.hasGoogleAdsConnection}
+      hasMerchantConnection={sources.hasMerchantConnection}
+      hasProductCosts={sources.hasProductCosts}
+      setupCount={sources.setupCount}
       recommendations={recommendations}
+      campaignRows={campaignRows}
+      campaignMeta={campaignMeta}
     />
   );
 }

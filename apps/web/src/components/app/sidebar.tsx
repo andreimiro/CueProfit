@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
 
 import { SignOutButton } from "@/components/sign-out-button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import type { WorkspaceSources } from "@/lib/workspace";
 
 import { Icon, type IconName } from "./icons";
+import { WorkspaceSourcesPanel } from "./workspace-sources-panel";
 
 type NavItem = { href: string; label: string; icon: IconName };
 
@@ -14,6 +17,7 @@ const NAV: NavItem[] = [
   { href: "/dashboard", label: "Overview", icon: "overview" },
   { href: "/dashboard/campaigns", label: "Campaigns", icon: "campaigns" },
   { href: "/dashboard/products", label: "Products", icon: "products" },
+  { href: "/dashboard/costs", label: "Product costs", icon: "products" },
   { href: "/dashboard/feed-health", label: "Feed health", icon: "feed" },
   { href: "/dashboard/recommendations", label: "Recommendations", icon: "recommendations" },
   { href: "/dashboard/settings", label: "Settings", icon: "settings" },
@@ -103,9 +107,11 @@ export function MobileNav() {
 export function Sidebar({
   workspaceName,
   userEmail,
+  sources,
 }: {
   workspaceName: string;
   userEmail: string;
+  sources: WorkspaceSources;
 }) {
   const pathname = usePathname();
   const initial = (userEmail.trim()[0] ?? "?").toUpperCase();
@@ -135,6 +141,8 @@ export function Sidebar({
       <div className="mt-2">
         <SidebarNav pathname={pathname} />
       </div>
+
+      <WorkspaceSourcesPanel sources={sources} />
 
       <div className="mt-auto space-y-3 pt-6">
         <div className="flex items-center gap-3 rounded-xl border border-edge bg-canvas/50 p-2.5">

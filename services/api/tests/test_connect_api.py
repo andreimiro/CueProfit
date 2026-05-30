@@ -44,6 +44,56 @@ def test_start_requires_internal_token(client):
     assert r.status_code == 401
 
 
+def test_start_returns_adwords_scope_only(client):
+    r = client.post(
+        "/connect/google/start",
+        headers=AUTH,
+        json={"workspace_id": WS, "user_id": USER, "nonce": "n1", "provider": "google_ads"},
+    )
+    assert r.status_code == 200
+    url = r.json()["auth_url"]
+    assert "www.googleapis.com%2Fauth%2Fadwords" in url or "auth/adwords" in url
+    assert "auth/content" not in url and "auth%2Fcontent" not in url
+
+
+def test_merchant_start_returns_content_scope(client):
+    r = client.post(
+        "/connect/merchant/start",
+        headers=AUTH,
+        json={"workspace_id": WS, "user_id": USER, "nonce": "n1", "provider": "merchant_center"},
+    )
+    assert r.status_code == 200
+    url = r.json()["auth_url"]
+    assert "www.googleapis.com%2Fauth%2Fcontent" in url or "auth/content" in url
+    assert "auth/adwords" not in url and "auth%2Fadwords" not in url
+
+
+def test_merchant_callback_happy_path(client):
+    store, cipher = FakeConnectionStore(), FakeCipher()
+    exchanger = FakeExchanger(TokenSet(refresh_token="1//mc-rt", access_token="at", expires_at=1))
+    app.dependency_overrides[connect_api.get_store] = lambda: store
+    app.dependency_overrides[connect_api.get_cipher_factory] = lambda: (lambda: cipher)
+    app.dependency_overrides[connect_api.get_exchanger] = lambda: exchanger
+    app.dependency_overrides[connect_api.get_merchant_discoverer] = lambda: (
+        lambda *, access_token, **kw: ["987654321"]
+    )
+
+    r = client.post(
+        "/connect/merchant/callback",
+        headers=AUTH,
+        json={
+            "code": "authcode",
+            "state": _state(nonce="n1", provider="merchant_center"),
+            "caller_user_id": USER,
+            "nonce": "n1",
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["connected"] == 1
+    conns = store.list_connections(WS)
+    assert conns[0]["provider"] == "merchant_center"
+
+
 def test_start_returns_offline_consent_url(client):
     r = client.post(
         "/connect/google/start",
@@ -94,7 +144,7 @@ def test_callback_happy_path_persists_encrypted(client):
     app.dependency_overrides[connect_api.get_store] = lambda: store
     app.dependency_overrides[connect_api.get_cipher_factory] = lambda: (lambda: cipher)
     app.dependency_overrides[connect_api.get_exchanger] = lambda: exchanger
-    app.dependency_overrides[connect_api.get_discoverer] = lambda: (
+    app.dependency_overrides[connect_api.get_ads_discoverer] = lambda: (
         lambda *, access_token, developer_token, **kw: ["123-456"]
     )
 

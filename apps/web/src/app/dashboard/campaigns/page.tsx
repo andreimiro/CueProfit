@@ -1,5 +1,5 @@
-import { EmptyState, Panel, PanelHeader, StatusTag } from "@/components/app/cards";
-import { ConnectGoogleButton } from "@/components/app/controls";
+import { Panel, PanelHeader, StatusTag } from "@/components/app/cards";
+import { DataSourceEmpty, GoogleAdsHeaderAction } from "@/components/app/data-source-empty";
 import { PageHeader } from "@/components/app/page-header";
 import {
   type CampaignMeta,
@@ -9,6 +9,7 @@ import {
   deriveAction,
   formatMoney,
 } from "@/lib/dashboard";
+import { loadDashboardWorkspace } from "@/lib/dashboard-workspace";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -17,13 +18,8 @@ export const revalidate = 0;
 const COLS = "grid-cols-[2.2fr_1fr_0.7fr_1fr_1fr_0.8fr]";
 
 export default async function CampaignsPage() {
+  const { workspaceId, currency, sources } = await loadDashboardWorkspace();
   const supabase = await createClient();
-  const { data: memberships } = await supabase
-    .from("workspace_members")
-    .select("workspace_id, workspaces(currency)");
-  const membership = memberships?.[0];
-  const workspaceId = membership?.workspace_id as string | undefined;
-  const currency = (membership?.workspaces as { currency?: string } | null)?.currency ?? "RON";
 
   let rows: ReturnType<typeof aggregateEntityFacts> = [];
   let meta = new Map<string, CampaignMeta>();
@@ -52,7 +48,7 @@ export default async function CampaignsPage() {
         <PageHeader
           title="Campaigns"
           subtitle={`True profit, POAS and the next action for every campaign · ${currency}`}
-          actions={<ConnectGoogleButton />}
+          actions={<GoogleAdsHeaderAction sources={sources} />}
         />
         <Panel className="overflow-hidden">
           <PanelHeader
@@ -103,12 +99,7 @@ export default async function CampaignsPage() {
               </div>
             </div>
           ) : (
-            <EmptyState
-              icon="campaigns"
-              title="No campaigns yet"
-              description="Connect Google Ads and run the first sync — campaigns appear here ranked by net profit, each with the action to take."
-              action={<ConnectGoogleButton variant="secondary" />}
-            />
+            <DataSourceEmpty sources={sources} source="google_ads" icon="campaigns" />
           )}
         </Panel>
       </div>

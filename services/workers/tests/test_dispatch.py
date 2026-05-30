@@ -5,6 +5,8 @@ from cueprofit_workers.cli import JOBS, run
 
 def test_core_jobs_are_registered():
     for name in (
+        "sync_workspace",
+        "sync_all_workspaces",
         "sync_google_ads",
         "sync_merchant",
         "resolve_identities",

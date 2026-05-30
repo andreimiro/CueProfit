@@ -3,12 +3,11 @@ import { NextResponse } from "next/server";
 import { getWorkspaceForConnect } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 
-async function startConnect(
-  request: Request,
-  apiPath: "/connect/google/start" | "/connect/merchant/start",
-  provider: "google_ads" | "merchant_center",
-  errorQuery: string,
-) {
+export async function GET(request: Request) {
+  return startConnect(request);
+}
+
+async function startConnect(request: Request) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -23,7 +22,7 @@ async function startConnect(
   }
 
   const nonce = crypto.randomUUID();
-  const res = await fetch(`${process.env.PYTHON_API_URL}${apiPath}`, {
+  const res = await fetch(`${process.env.PYTHON_API_URL}/connect/merchant/start`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -33,18 +32,18 @@ async function startConnect(
       workspace_id: workspace.workspaceId,
       user_id: user.id,
       nonce,
-      provider,
+      provider: "merchant_center",
       login_hint: user.email ?? undefined,
     }),
     cache: "no-store",
   });
   if (!res.ok) {
-    return NextResponse.redirect(new URL(`/dashboard?${errorQuery}=error`, request.url));
+    return NextResponse.redirect(new URL("/dashboard?merchant=error", request.url));
   }
 
   const { auth_url } = (await res.json()) as { auth_url: string };
   if (!auth_url.startsWith("https://accounts.google.com/")) {
-    return NextResponse.redirect(new URL(`/dashboard?${errorQuery}=error`, request.url));
+    return NextResponse.redirect(new URL("/dashboard?merchant=error", request.url));
   }
 
   const response = NextResponse.redirect(auth_url);
@@ -56,8 +55,4 @@ async function startConnect(
     maxAge: 600,
   });
   return response;
-}
-
-export async function GET(request: Request) {
-  return startConnect(request, "/connect/google/start", "google_ads", "connect");
 }

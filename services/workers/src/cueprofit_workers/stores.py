@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from typing import Any, Protocol
 
 from google_clients.mappers import CampaignDailyStat, ProductDailyStat
+from google_clients.merchant_mappers import MerchantCatalogProduct
 
 
 def _utc_now_iso() -> str:
@@ -25,10 +26,14 @@ class StatsStore(Protocol):
     def finish_sync_run(self, *, run_id: str, status: str, rows_written: int, cursor: dict | None, error: str | None) -> None: ...
     def upsert_campaign_stats(self, *, workspace_id: str, rows: list[CampaignDailyStat]) -> int: ...
     def upsert_product_stats(self, *, workspace_id: str, rows: list[ProductDailyStat]) -> int: ...
+    def upsert_catalog_products(self, *, workspace_id: str, rows: list[MerchantCatalogProduct]) -> int: ...
     def list_products(self, workspace_id: str) -> list[dict]: ...
     def list_unresolved_ads_items(self, workspace_id: str) -> list[dict]: ...
     def upsert_identity_map(self, *, workspace_id: str, rows: list[dict]) -> int: ...
     def link_product_stats(self, *, workspace_id: str, ads_item_id: str, product_id: str) -> int: ...
+    def list_merchant_connections(self, workspace_id: str) -> list[dict]: ...
+    def list_workspaces_with_google_ads(self) -> list[str]: ...
+    def mark_connection_synced(self, *, connection_id: str, workspace_id: str) -> None: ...
 
 
 # ── In-memory fake ─────────────────────────────────────────────────────────
@@ -40,6 +45,7 @@ class FakeStatsStore:
         self.identity: list[tuple[str, dict]] = []
         self.links: list[tuple[str, str, str]] = []
         self.products: list[dict] = []
+        self.catalog: list[tuple[str, MerchantCatalogProduct]] = []
         self.unresolved: list[dict] = []
 
     def start_sync_run(self, *, workspace_id, provider, kind, connection_id=None) -> str:
@@ -60,6 +66,33 @@ class FakeStatsStore:
     def upsert_product_stats(self, *, workspace_id, rows) -> int:
         self.product.extend((workspace_id, r) for r in rows)
         return len(rows)
+
+    def upsert_catalog_products(self, *, workspace_id, rows) -> int:
+        self.catalog.extend((workspace_id, r) for r in rows)
+        for row in rows:
+            self.products.append({
+                "workspace_id": workspace_id,
+                "product_id": row.merchant_product_id,
+                "offer_id": row.offer_id,
+                "merchant_product_id": row.merchant_product_id,
+                "sku": row.sku,
+                "gtin": row.gtin,
+                "landing_url": row.landing_url,
+                "title": row.title,
+            })
+        return len(rows)
+
+    def list_merchant_connections(self, workspace_id) -> list[dict]:
+        return []
+
+    def list_google_ads_connections(self, workspace_id) -> list[dict]:
+        return []
+
+    def list_workspaces_with_google_ads(self) -> list[str]:
+        return []
+
+    def mark_connection_synced(self, *, connection_id, workspace_id) -> None:
+        return None
 
     def list_products(self, workspace_id) -> list[dict]:
         return [p for p in self.products if p["workspace_id"] == workspace_id]
@@ -96,6 +129,35 @@ def _product_row(workspace_id: str, s: ProductDailyStat) -> dict:
         "impressions": s.impressions, "clicks": s.clicks, "spend": float(s.spend),
         "conversions": float(s.conversions), "conversion_value": float(s.conversion_value),
         "currency": s.currency,
+    }
+
+
+def _catalog_product_row(workspace_id: str, p: MerchantCatalogProduct) -> dict:
+    return {
+        "workspace_id": workspace_id,
+        "merchant_product_id": p.merchant_product_id,
+        "offer_id": p.offer_id,
+        "sku": p.sku,
+        "gtin": p.gtin,
+        "mpn": p.mpn,
+        "title": p.title,
+        "brand": p.brand,
+        "category": p.category,
+        "product_type": p.product_type,
+        "price": float(p.price) if p.price is not None else None,
+        "sale_price": float(p.sale_price) if p.sale_price is not None else None,
+        "currency": p.currency,
+        "availability": p.availability,
+        "condition": p.condition,
+        "image_url": p.image_url,
+        "landing_url": p.landing_url,
+        "status": p.status,
+        "custom_label_0": p.custom_label_0,
+        "custom_label_1": p.custom_label_1,
+        "custom_label_2": p.custom_label_2,
+        "custom_label_3": p.custom_label_3,
+        "custom_label_4": p.custom_label_4,
+        "raw": p.raw,
     }
 
 
@@ -174,6 +236,19 @@ class SupabaseStatsStore:
             if self._http is None:
                 client.close()
 
+    def upsert_catalog_products(self, *, workspace_id, rows) -> int:
+        client = self._client()
+        try:
+            return self._upsert(
+                client,
+                "products",
+                "workspace_id,merchant_product_id",
+                [_catalog_product_row(workspace_id, p) for p in rows],
+            )
+        finally:
+            if self._http is None:
+                client.close()
+
     def list_products(self, workspace_id) -> list[dict]:
         client = self._client()
         try:
@@ -236,10 +311,57 @@ class SupabaseStatsStore:
         try:
             resp = client.get(f"{self._rest}/oauth_connections", params={
                 "workspace_id": f"eq.{workspace_id}", "provider": "eq.google_ads",
+                "status": "eq.active", "select": "id,external_account_id,login_customer_id",
+            })
+            resp.raise_for_status()
+            return resp.json()
+        finally:
+            if self._http is None:
+                client.close()
+
+    def list_merchant_connections(self, workspace_id: str) -> list[dict]:
+        client = self._client()
+        try:
+            resp = client.get(f"{self._rest}/oauth_connections", params={
+                "workspace_id": f"eq.{workspace_id}", "provider": "eq.merchant_center",
                 "status": "eq.active", "select": "id,external_account_id",
             })
             resp.raise_for_status()
             return resp.json()
+        finally:
+            if self._http is None:
+                client.close()
+
+    def list_workspaces_with_google_ads(self) -> list[str]:
+        """Distinct workspace IDs with at least one active Google Ads connection."""
+        client = self._client()
+        try:
+            resp = client.get(f"{self._rest}/oauth_connections", params={
+                "provider": "eq.google_ads",
+                "status": "eq.active",
+                "select": "workspace_id",
+            })
+            resp.raise_for_status()
+            seen: set[str] = set()
+            ordered: list[str] = []
+            for row in resp.json():
+                ws = row.get("workspace_id")
+                if ws and ws not in seen:
+                    seen.add(ws)
+                    ordered.append(ws)
+            return ordered
+        finally:
+            if self._http is None:
+                client.close()
+
+    def mark_connection_synced(self, *, connection_id: str, workspace_id: str) -> None:
+        client = self._client()
+        try:
+            client.patch(
+                f"{self._rest}/oauth_connections",
+                params={"id": f"eq.{connection_id}", "workspace_id": f"eq.{workspace_id}"},
+                json={"last_synced_at": _utc_now_iso()},
+            ).raise_for_status()
         finally:
             if self._http is None:
                 client.close()
