@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { GoogleGlyph } from "@/components/google-glyph";
@@ -20,10 +19,10 @@ export function ConnectGoogleButton({
       ? "bg-profit text-on-profit shadow-[0_18px_35px_-22px_var(--color-profit)] hover:bg-profit-strong"
       : "border border-edge bg-panel text-fg hover:border-profit/40";
   return (
-    <Link href="/api/connect/google/start" className={`${base} ${styles}`}>
+    <a href="/api/connect/google/start" className={`${base} ${styles}`}>
       <GoogleGlyph size={16} />
       {children}
-    </Link>
+    </a>
   );
 }
 

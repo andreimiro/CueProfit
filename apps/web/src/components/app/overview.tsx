@@ -35,6 +35,13 @@ const SETUP_STEPS = [
   },
 ] as const;
 
+const connectedLabel = (
+  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-profit">
+    <Icon name="check" width={14} height={14} />
+    Connected
+  </span>
+);
+
 const SKELETON_BARS = [42, 56, 49, 64, 58, 72, 60, 80, 74, 88, 70, 84];
 
 const TONE_TEXT: Record<string, string> = {
@@ -47,10 +54,12 @@ const TONE_TEXT: Record<string, string> = {
 export function Overview({
   currency = "RON",
   facts = [],
+  hasGoogleAdsConnection = false,
   recommendations = [],
 }: {
   currency?: string;
   facts?: AccountFact[];
+  hasGoogleAdsConnection?: boolean;
   recommendations?: Recommendation[];
 }) {
   const summary = summarizeAccountFacts(facts, currency);
@@ -92,7 +101,7 @@ export function Overview({
             <>
               <SearchField />
               <DateRangePill />
-              <ConnectGoogleButton />
+              {!hasGoogleAdsConnection ? <ConnectGoogleButton /> : null}
             </>
           }
         />
@@ -105,24 +114,35 @@ export function Overview({
                 <Icon name="spark" width={20} height={20} />
               </span>
               <div>
-                <p className="font-display text-base font-semibold">Finish setup to see live profit</p>
-                <p className="text-sm text-muted">Three quick steps. You can start with Google Ads now.</p>
+                <p className="font-display text-base font-semibold">
+                  {hasGoogleAdsConnection ? "Google Ads is connected" : "Finish setup to see live profit"}
+                </p>
+                <p className="text-sm text-muted">
+                  {hasGoogleAdsConnection
+                    ? "Next, connect Merchant Center and add product costs."
+                    : "Three quick steps. You can start with Google Ads now."}
+                </p>
               </div>
             </div>
             <span className="inline-flex w-fit items-center gap-2 rounded-full border border-edge bg-panel px-3 py-1.5 text-xs font-semibold text-muted">
               <span className="h-1.5 w-1.5 rounded-full bg-amber" />
-              {summary.hasData ? "Live data connected" : "0 of 3 connected"}
+              {hasGoogleAdsConnection ? "1 of 3 connected" : "0 of 3 connected"}
             </span>
           </div>
           <div className="grid gap-px bg-edge sm:grid-cols-3">
-            {SETUP_STEPS.map((step) => (
+            {SETUP_STEPS.map((step) => {
+              const isGoogleAdsStep = step.n === 1;
+              const isUnlocked = step.n > 1 && hasGoogleAdsConnection;
+              return (
               <div key={step.n} className="bg-panel p-5">
                 <div className="flex items-center gap-3">
                   <span
                     className={`grid h-7 w-7 place-items-center rounded-full text-sm font-semibold ${
-                      step.now
+                      isGoogleAdsStep
                         ? "bg-profit text-on-profit"
-                        : "border border-edge bg-panel-2 text-faint"
+                        : isUnlocked
+                          ? "border border-profit/30 bg-profit/10 text-profit"
+                          : "border border-edge bg-panel-2 text-faint"
                     }`}
                   >
                     {step.n}
@@ -131,8 +151,17 @@ export function Overview({
                 </div>
                 <p className="mt-2.5 text-sm leading-6 text-muted">{step.desc}</p>
                 <div className="mt-4">
-                  {step.now ? (
-                    <ConnectGoogleButton />
+                  {isGoogleAdsStep ? (
+                    hasGoogleAdsConnection ? (
+                      connectedLabel
+                    ) : (
+                      <ConnectGoogleButton />
+                    )
+                  ) : isUnlocked ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-profit">
+                      <Icon name="chevronRight" width={14} height={14} />
+                      Ready
+                    </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 text-xs font-medium text-faint">
                       <Icon name="chevronRight" width={14} height={14} />
@@ -141,7 +170,8 @@ export function Overview({
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </Panel>
 
@@ -178,12 +208,14 @@ export function Overview({
                       <Icon name="trendUp" width={22} height={22} />
                     </span>
                     <p className="font-display text-base font-semibold">
-                      Your profit curve appears after the first sync
+                      {hasGoogleAdsConnection ? "Your first sync is pending" : "Your profit curve appears after the first sync"}
                     </p>
                     <p className="text-sm leading-6 text-muted">
-                      Connect Google Ads to chart net profit by day, with loss days flagged.
+                      {hasGoogleAdsConnection
+                        ? "Google Ads is connected. Profit data will appear after campaigns sync."
+                        : "Connect Google Ads to chart net profit by day, with loss days flagged."}
                     </p>
-                    <ConnectGoogleButton variant="secondary" />
+                    {!hasGoogleAdsConnection ? <ConnectGoogleButton variant="secondary" /> : null}
                   </div>
                 </div>
               ) : null}
@@ -217,8 +249,12 @@ export function Overview({
               <EmptyState
                 icon="recommendations"
                 title="No recommendations yet"
-                description="Once we can see profit, we rank what to stop, fix, or scale — each with an estimated weekly impact."
-                action={<ConnectGoogleButton variant="secondary" />}
+                description={
+                  hasGoogleAdsConnection
+                    ? "Recommendations appear after the first Google Ads sync and profit recompute."
+                    : "Once we can see profit, we rank what to stop, fix, or scale — each with an estimated weekly impact."
+                }
+                action={!hasGoogleAdsConnection ? <ConnectGoogleButton variant="secondary" /> : undefined}
               />
             )}
           </Panel>
@@ -241,8 +277,12 @@ export function Overview({
           <EmptyState
             icon="campaigns"
             title="No campaigns yet"
-            description="Connect Google Ads to import campaigns and see per-campaign and per-product profit."
-            action={<ConnectGoogleButton />}
+            description={
+              hasGoogleAdsConnection
+                ? "Campaigns will appear after the first Google Ads sync."
+                : "Connect Google Ads to import campaigns and see per-campaign and per-product profit."
+            }
+            action={!hasGoogleAdsConnection ? <ConnectGoogleButton /> : undefined}
           >
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-faint">
               <span className="mr-1">Actions you&apos;ll see:</span>

@@ -4,7 +4,11 @@ import { Panel, PanelHeader } from "@/components/app/cards";
 import { PageHeader } from "@/components/app/page-header";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -13,12 +17,24 @@ export default async function SettingsPage() {
   } = await supabase.auth.getUser();
   const { data: memberships } = await supabase
     .from("workspace_members")
-    .select("role, workspaces(name, currency)");
+    .select("workspace_id, role, workspaces(name, currency)");
 
   const membership = memberships?.[0];
+  const workspaceId = membership?.workspace_id as string | undefined;
   const role = (membership?.role as string | undefined) ?? "owner";
   const workspace =
     (membership?.workspaces as { name?: string; currency?: string } | null) ?? null;
+  let hasGoogleAdsConnection = false;
+  if (workspaceId) {
+    const { data: connections } = await createAdminClient()
+      .from("oauth_connections")
+      .select("id")
+      .eq("workspace_id", workspaceId)
+      .eq("provider", "google_ads")
+      .eq("status", "active")
+      .limit(1);
+    hasGoogleAdsConnection = Boolean(connections?.length);
+  }
 
   return (
     <div className="px-5 py-6 sm:px-8 lg:px-10 lg:py-8">
@@ -61,7 +77,7 @@ export default async function SettingsPage() {
           <Panel>
             <PanelHeader title="Data sources" hint="Connections power your profit numbers" />
             <div className="divide-y divide-edge">
-              <Row label="Google Ads" value="Not connected" />
+              <Row label="Google Ads" value={hasGoogleAdsConnection ? "Connected" : "Not connected"} />
               <Row label="Merchant Center" value="Not connected" />
               <Row label="Product costs" value="Not set" />
             </div>
