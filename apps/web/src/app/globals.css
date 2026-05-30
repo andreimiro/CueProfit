@@ -19,6 +19,11 @@
   --color-signal: var(--c-signal);
   --color-amber: var(--c-amber);
   --color-on-profit: var(--c-on-profit);
+
+  /* Rounder, friendlier business radii */
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
 }
 
 /* Dark is the default (SSR + no preference) */
@@ -43,7 +48,7 @@
 
 .light {
   color-scheme: light;
-  --c-canvas: #f4f7f5;
+  --c-canvas: #f5f7f6;
   --c-panel: #ffffff;
   --c-panel-2: #eef3f0;
   --c-edge: #dde6e1;
@@ -72,12 +77,59 @@
   }
   h1, h2, h3 {
     font-family: var(--font-display);
-    letter-spacing: -0.025em;
-    line-height: 1.02;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+  }
+
+  /* Thin, on-brand scrollbars for the app shell */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--color-edge) 90%, transparent) transparent;
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--color-edge) 85%, transparent);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-faint);
+    background-clip: padding-box;
+  }
+
+  /* One consistent, visible focus ring across every interactive element */
+  :where(a, button, [role="button"], input, select, [tabindex]):focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--color-profit) 75%, transparent);
+    outline-offset: 2px;
+    border-radius: 10px;
   }
 }
 
-/* ── Atmosphere (no grid): soft monochromatic glow + grain ─────────────── */
+/* ── Surfaces & elevation ───────────────────────────────────────────────── */
+.shadow-design {
+  box-shadow:
+    0 30px 70px -38px rgba(0, 0, 0, 0.6),
+    0 10px 26px -18px rgba(0, 0, 0, 0.5);
+}
+.shadow-card {
+  box-shadow:
+    0 1px 0 0 color-mix(in oklab, var(--color-fg) 5%, transparent) inset,
+    0 20px 44px -34px rgba(0, 0, 0, 0.55);
+}
+
+/* Subtle technical grid — used behind marketing / hero surfaces */
+.bg-paper-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--color-edge) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--color-edge) 55%, transparent) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(78% 60% at 50% 0%, #000 25%, transparent 82%);
+  mask-image: radial-gradient(78% 60% at 50% 0%, #000 25%, transparent 82%);
+  opacity: 0.55;
+}
+
+/* ── Atmosphere: soft monochromatic glow + grain ───────────────────────── */
 .bg-ambient {
   background:
     radial-gradient(48% 40% at 12% 2%, color-mix(in oklab, var(--color-profit) 14%, transparent), transparent 70%),
@@ -99,7 +151,7 @@
   from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: none; }
 }
-.animate-reveal { animation: reveal 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.animate-reveal { animation: reveal 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 
 @keyframes ticker {
   from { transform: translateX(0); }
@@ -125,6 +177,13 @@
 }
 .animate-bar { transform-origin: bottom; animation: grow 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 
+/* Perpetual, transform-only float for hero/product surfaces (GPU-cheap) */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.animate-float { animation: float 7s ease-in-out infinite; }
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-reveal, .animate-ticker, .animate-bar, .caret::after { animation: none; }
+  .animate-reveal, .animate-ticker, .animate-bar, .animate-float, .caret::after { animation: none; }
 }

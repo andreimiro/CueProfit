@@ -1,20 +1,23 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import type { ReactNode } from "react";
 
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
-const display = Bricolage_Grotesque({
+// Display — confident, slightly technical grotesk for headlines & big numbers.
+const display = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-display-face",
   display: "swap",
 });
-const body = Hanken_Grotesk({
+// Body — Inter: the most legible, business-grade UI sans. Easy to read at any size.
+const body = Inter({
   subsets: ["latin"],
   variable: "--font-body-face",
   display: "swap",
 });
+// Mono — reserved for tabular figures (money, ratios) so columns line up.
 const mono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono-face",
