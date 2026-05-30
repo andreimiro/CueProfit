@@ -51,6 +51,7 @@ packages are managed with **uv** (each has its own `pyproject.toml`).
 ```bash
 cp .env.example .env            # fill in values
 ln -sf ../../.env apps/web/.env.local   # Next loads env from the app dir, not repo root
+ln -sf ../../.env services/api/.env     # FastAPI loads env from its own dir too
 pnpm install                    # JS deps
 supabase start                  # local Postgres + Auth (Docker)
 supabase db reset               # apply migrations + seed

@@ -69,6 +69,7 @@ version = "0.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "cueprofit-profit-engine" },
+    { name = "cueprofit-security" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "pydantic-settings" },
@@ -83,6 +84,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "cueprofit-profit-engine", editable = "../../packages/profit-engine" },
+    { name = "cueprofit-security", editable = "../../packages/security" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "pydantic-settings", specifier = ">=2.5" },
@@ -99,6 +101,18 @@ source = { editable = "../../packages/profit-engine" }
 [package.metadata]
 requires-dist = [{ name = "pytest", marker = "extra == 'dev'", specifier = ">=8" }]
 provides-extras = ["dev"]
+
+[[package]]
+name = "cueprofit-security"
+version = "0.0.0"
+source = { editable = "../../packages/security" }
+
+[package.metadata]
+requires-dist = [
+    { name = "google-cloud-kms", marker = "extra == 'kms'", specifier = ">=3.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
+]
+provides-extras = ["dev", "kms"]
 
 [[package]]
 name = "fastapi"

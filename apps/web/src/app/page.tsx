@@ -6,28 +6,44 @@ import { ThemeToggle } from "@/components/theme-toggle";
 const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.captioncue.shop";
 
 const features = [
-  { n: "01", k: "PROFIT", t: "Profit by campaign & product", d: "True net profit after COGS, shipping, returns, fees and ad spend — not vanity ROAS." },
-  { n: "02", k: "WASTE", t: "Wasted-spend radar", d: "Surface the products quietly burning budget with zero or negative return." },
-  { n: "03", k: "POAS", t: "ROAS vs POAS", d: "See exactly where a “healthy” ROAS still loses money against its break-even." },
-  { n: "04", k: "FEED", t: "Merchant feed health", d: "Disapprovals, missing GTINs and weak titles — caught before they cost you sales." },
-  { n: "05", k: "SIGNAL", t: "Tracking health", d: "Conversion drops, value shifts and broken purchase tracking, flagged early." },
-  { n: "06", k: "COPILOT", t: "AI action plans", d: "Ask why profit dropped and get a ranked plan of what to stop, fix and scale." },
-];
+  {
+    n: "01",
+    k: "Margin truth",
+    d: "Blend ad spend, product cost, shipping, returns, and fees into one profit view.",
+  },
+  {
+    n: "02",
+    k: "Waste radar",
+    d: "Spot products and campaigns that look healthy in ROAS but lose money after costs.",
+  },
+  {
+    n: "03",
+    k: "Feed pressure",
+    d: "Catch Merchant Center issues, weak titles, and tracking breaks before spend drifts.",
+  },
+  {
+    n: "04",
+    k: "Next move",
+    d: "Rank what to stop, fix, or scale with profit impact and confidence attached.",
+  },
+] as const;
 
-const ticker = [
-  "NET PROFIT", "POAS", "WASTED SPEND", "BREAK-EVEN ROAS",
-  "FEED HEALTH", "TRACKING HEALTH", "PROJECTED INCREMENTAL PROFIT",
-];
+const rows = [
+  ["Shopping / hero sku set", "+8,420 RON", "3.12", "Scale"],
+  ["PMax / outlet inventory", "-740 RON", "1.04", "Cap"],
+  ["Search / brand defense", "+1,960 RON", "4.88", "Hold"],
+  ["Shopping / low margin", "-310 RON", "0.82", "Pause"],
+] as const;
 
-const bars = [38, 52, 30, 64, 47, 71, 58, 80, 44];
+const bars = [42, 56, 49, 68, 61, 74, 58, 84, 76, 92, 72, 88];
 
 function Logo() {
   return (
-    <Link href="/" className="group flex items-center gap-2.5">
-      <span className="grid h-7 w-7 place-items-center rounded-md border border-profit/40 bg-profit/10 transition group-hover:bg-profit/20">
-        <span className="h-2.5 w-2.5 rounded-full bg-profit shadow-[0_0_12px_2px] shadow-profit/60" />
+    <Link href="/" className="group flex items-center gap-3">
+      <span className="grid h-8 w-8 place-items-center rounded-[8px] border border-edge bg-fg text-canvas transition group-hover:border-profit">
+        <span className="h-2.5 w-2.5 rounded-full bg-profit" />
       </span>
-      <span className="font-display text-[15px] font-extrabold tracking-tight">
+      <span className="font-display text-base font-semibold tracking-normal">
         Cue<span className="text-profit">Profit</span>
       </span>
     </Link>
@@ -36,191 +52,126 @@ function Logo() {
 
 export default function Home() {
   return (
-    <main className="relative min-h-screen overflow-x-clip">
-      <div className="pointer-events-none absolute inset-0 bg-ambient" aria-hidden />
+    <main className="relative min-h-screen overflow-x-clip bg-canvas">
+      <div className="pointer-events-none absolute inset-0 bg-paper-grid" aria-hidden />
       <div className="pointer-events-none absolute inset-0 grain" aria-hidden />
 
-      <div className="relative mx-auto max-w-6xl px-6">
-        {/* nav */}
-        <nav className="flex items-center justify-between py-6">
+      <div className="relative mx-auto max-w-7xl px-5 sm:px-8">
+        <nav className="flex items-center justify-between py-5">
           <Logo />
           <div className="hidden items-center gap-8 text-sm text-muted md:flex">
-            <a href="#features" className="transition hover:text-fg">Product</a>
-            <a href="#thesis" className="transition hover:text-fg">Why profit</a>
+            <a href="#product" className="transition hover:text-fg">Product</a>
+            <a href="#proof" className="transition hover:text-fg">Proof</a>
             <Link href={`${appBaseUrl}/login`} className="transition hover:text-fg">Log in</Link>
           </div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <ThemeToggle />
             <Link
               href={`${appBaseUrl}/login`}
-              className="flex items-center gap-2 rounded-lg border border-profit/30 bg-profit/10 px-4 py-2 text-sm font-semibold text-profit transition hover:bg-profit/20"
+              className="inline-flex items-center gap-2 rounded-[8px] bg-profit px-4 py-2.5 text-sm font-semibold text-on-profit shadow-[0_18px_35px_-22px_var(--color-profit)] transition hover:bg-profit-strong"
             >
               <GoogleGlyph size={15} />
-              Connect Google Ads
+              Connect
             </Link>
           </div>
         </nav>
 
-        {/* hero */}
-        <section className="grid items-center gap-12 pt-10 pb-20 lg:grid-cols-[1.05fr_0.95fr] lg:pt-16">
-          <div>
-            <p className="animate-reveal mb-6 inline-flex items-center gap-2 rounded-full border border-edge bg-panel/60 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted" style={{ animationDelay: "40ms" }}>
-              <span className="h-1.5 w-1.5 rounded-full bg-signal" />
-              Profit intelligence · Google Ads
+        <section className="grid min-h-[calc(100vh-76px)] items-center gap-12 pb-12 pt-8 lg:grid-cols-[0.82fr_1.18fr] lg:pb-16">
+          <div className="max-w-xl">
+            <p className="mb-7 inline-flex border-b border-profit pb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
+              Google Ads profit intelligence
             </p>
-            <h1 className="animate-reveal text-5xl font-extrabold sm:text-6xl" style={{ animationDelay: "120ms" }}>
-              Your ROAS<br />is lying.
-              <span className="mt-2 block text-muted">
-                See the profit <span className="text-profit caret">underneath</span>
-              </span>
+            <h1 className="max-w-[16ch] text-[clamp(3.8rem,7.3vw,7.2rem)] font-semibold leading-[0.88] tracking-normal">
+              Profit before the play
             </h1>
-            <p className="animate-reveal mt-7 max-w-md text-lg leading-relaxed text-muted" style={{ animationDelay: "220ms" }}>
-              Connect Google Ads, Merchant Center and your product costs to see true
-              campaign and product profit, wasted spend, and the AI-recommended next move.
+            <p className="mt-8 max-w-md text-lg leading-7 text-muted">
+              CueProfit turns ads, feed quality, and product costs into a clear operating
+              view for ecommerce teams that care about margin, not vanity ROAS.
             </p>
-            <div className="animate-reveal mt-9 flex flex-wrap items-center gap-3" style={{ animationDelay: "320ms" }}>
+            <div className="mt-10 flex flex-wrap items-center gap-3">
               <Link
                 href={`${appBaseUrl}/login`}
-                className="rounded-lg bg-profit px-6 py-3 font-semibold text-on-profit shadow-lg shadow-profit/30 transition hover:bg-profit-strong"
+                className="rounded-[8px] bg-fg px-6 py-3 text-sm font-semibold text-canvas transition hover:bg-profit hover:text-on-profit"
               >
-                Start free
+                Start with Google Ads
               </Link>
               <Link
                 href={`${appBaseUrl}/dashboard`}
-                className="rounded-lg border border-edge px-6 py-3 font-medium text-muted transition hover:border-profit/40 hover:text-fg"
+                className="rounded-[8px] border border-edge bg-panel px-6 py-3 text-sm font-semibold text-fg transition hover:border-profit"
               >
-                Go to dashboard
+                View dashboard
               </Link>
             </div>
-            <p className="animate-reveal mt-6 font-mono text-xs text-faint" style={{ animationDelay: "420ms" }}>
-              ./no card required · connect in 2 minutes
-            </p>
           </div>
 
-          {/* command-center panel */}
-          <div className="animate-reveal" style={{ animationDelay: "260ms" }}>
-            <div className="overflow-hidden rounded-2xl border border-edge bg-panel/80 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.55)] backdrop-blur">
-              <div className="flex items-center gap-2 border-b border-edge bg-panel-2 px-4 py-3">
-                <span className="h-2.5 w-2.5 rounded-full bg-loss/70" />
-                <span className="h-2.5 w-2.5 rounded-full bg-amber/70" />
-                <span className="h-2.5 w-2.5 rounded-full bg-profit/70" />
-                <span className="ml-3 font-mono text-xs text-muted">command-center · last 7 days</span>
-              </div>
-              <div className="space-y-3 p-5">
-                <Metric label="NET PROFIT" value="+12,480 RON" tone="profit" trend="▲ 18%" />
-                <Metric label="POAS" value="2.94" tone="profit" trend="▲ 0.3" />
-                <Metric label="WASTED SPEND" value="−740 RON" tone="loss" trend="34 products" />
-
-                <div className="rounded-xl border border-edge bg-panel-2/60 p-4">
-                  <div className="mb-3 flex items-center justify-between font-mono text-[11px] text-muted">
-                    <span>DAILY NET PROFIT</span>
-                    <span className="text-profit">+RON</span>
-                  </div>
-                  <div className="flex h-20 items-end gap-1.5">
-                    {bars.map((h, i) => (
-                      <div
-                        key={i}
-                        className={`animate-bar flex-1 rounded-sm ${i === 2 ? "bg-loss/70" : "bg-profit/70"}`}
-                        style={{ height: `${h}%`, animationDelay: `${500 + i * 70}ms` }}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 rounded-xl border border-loss/30 bg-loss/5 px-4 py-3 font-mono text-xs">
-                  <span className="text-loss">⚠</span>
-                  <span className="text-muted">
-                    ROAS <span className="text-profit">3.0 ✓</span> · break-even{" "}
-                    <span className="text-loss">3.75 ✗</span> — losing money
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
+          <DashboardPreview />
         </section>
       </div>
 
-      {/* ticker */}
-      <div className="relative border-y border-edge bg-panel/40 py-3">
-        <div className="flex w-max animate-ticker gap-10 font-mono text-xs uppercase tracking-[0.2em] text-faint">
-          {[...ticker, ...ticker].map((t, i) => (
-            <span key={i} className="flex items-center gap-10">
-              {t}
-              <span className="text-profit/50">◆</span>
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* features */}
-      <section id="features" className="relative mx-auto max-w-6xl px-6 py-24">
-        <div className="mb-14 max-w-xl">
-          <p className="mb-3 font-mono text-xs uppercase tracking-[0.2em] text-profit">What you get</p>
-          <h2 className="text-3xl font-bold sm:text-4xl">
-            Every metric, rebuilt around the only number that matters.
-          </h2>
-        </div>
-        <div className="grid gap-px overflow-hidden rounded-2xl border border-edge bg-edge sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((f) => (
-            <div key={f.n} className="group bg-panel p-7 transition hover:bg-panel-2">
-              <div className="mb-5 flex items-center justify-between font-mono text-xs text-faint">
-                <span>{f.n}</span>
-                <span className="text-profit/70">{f.k}</span>
-              </div>
-              <h3 className="text-lg font-semibold text-fg">{f.t}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted">{f.d}</p>
-              <span className="mt-5 inline-block h-px w-8 bg-profit/40 transition-all group-hover:w-16" />
-            </div>
-          ))}
+      <section id="proof" className="relative border-y border-edge bg-panel">
+        <div className="mx-auto grid max-w-7xl divide-y divide-edge px-5 sm:px-8 md:grid-cols-3 md:divide-x md:divide-y-0">
+          <MetricStat value="+18.4%" label="incremental profit found in first audit" />
+          <MetricStat value="34" label="waste pockets grouped by product margin" />
+          <MetricStat value="3.75" label="break-even ROAS exposed for low-margin SKUs" />
         </div>
       </section>
 
-      {/* thesis */}
-      <section id="thesis" className="relative border-y border-edge bg-panel/40">
-        <div className="relative mx-auto max-w-5xl px-6 py-24 text-center">
-          <p className="mb-5 font-mono text-xs uppercase tracking-[0.2em] text-muted">The thesis</p>
-          <h2 className="mx-auto max-w-3xl text-4xl font-bold sm:text-5xl">
-            A <span className="text-profit">3.0 ROAS</span> can still
-            <br className="hidden sm:block" /> lose you money.
-          </h2>
-          <div className="mx-auto mt-10 max-w-md rounded-2xl border border-edge bg-canvas/70 p-6 text-left font-mono text-sm nums">
-            <Line k="conversion value" v="300.00" />
-            <Line k="− product cost (22 ea ×10)" v="220.00" tone="loss" />
-            <Line k="= gross profit" v="80.00" tone="profit" />
-            <Line k="− ad spend" v="100.00" tone="loss" />
-            <div className="my-3 border-t border-edge" />
-            <Line k="net profit" v="−20.00" tone="loss" big />
-            <p className="mt-4 text-xs text-faint">
-              break-even ROAS for this product is <span className="text-loss">3.75</span>,
-              not 3.0. CueProfit shows you this for every product.
-            </p>
+      <section id="product" className="relative mx-auto max-w-7xl px-5 py-24 sm:px-8 lg:py-32">
+        <div className="grid gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-end">
+          <div>
+            <p className="mb-4 font-mono text-xs uppercase tracking-[0.18em] text-profit">Operating system</p>
+            <h2 className="max-w-2xl text-4xl font-semibold sm:text-6xl">
+              A calmer way to decide what deserves spend.
+            </h2>
           </div>
+          <p className="max-w-xl text-lg leading-8 text-muted lg:justify-self-end">
+            The product is designed around a merchant's real constraints: margin,
+            stock, feed health, and confidence. Every panel answers whether a move
+            will create profit.
+          </p>
+        </div>
+
+        <div className="mt-14 grid gap-px overflow-hidden rounded-[8px] border border-edge bg-edge md:grid-cols-2 lg:grid-cols-4">
+          {features.map((feature) => (
+            <article key={feature.n} className="min-h-64 bg-panel p-6 transition hover:bg-panel-2">
+              <div className="flex items-center justify-between font-mono text-xs text-faint">
+                <span>{feature.n}</span>
+                <span>{feature.k}</span>
+              </div>
+              <p className="mt-24 text-base leading-6 text-muted">{feature.d}</p>
+            </article>
+          ))}
         </div>
       </section>
 
-      {/* cta */}
-      <section className="relative mx-auto max-w-6xl px-6 py-28 text-center">
-        <h2 className="mx-auto max-w-2xl text-4xl font-bold sm:text-5xl">See your real profit.</h2>
-        <p className="mx-auto mt-5 max-w-md text-lg text-muted">
-          Stop optimizing for ROAS. Start optimizing for profit.
-        </p>
-        <Link
-          href={`${appBaseUrl}/login`}
-          className="mt-9 inline-block rounded-lg bg-profit px-8 py-3.5 font-semibold text-on-profit shadow-lg shadow-profit/30 transition hover:bg-profit-strong"
-        >
-          Connect Google Ads
-        </Link>
+      <section className="relative mx-auto grid max-w-7xl gap-8 px-5 pb-28 sm:px-8 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="rounded-[8px] border border-edge bg-fg p-6 text-canvas sm:p-8">
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-profit">Break-even model</p>
+          <h2 className="mt-24 max-w-xl text-4xl font-semibold sm:text-6xl">
+            A 3.0 ROAS can still be a loss.
+          </h2>
+        </div>
+        <div className="rounded-[8px] border border-edge bg-panel p-6 sm:p-8">
+          <Line k="conversion value" v="300.00 RON" />
+          <Line k="product cost" v="-220.00 RON" tone="loss" />
+          <Line k="gross profit" v="80.00 RON" tone="profit" />
+          <Line k="ad spend" v="-100.00 RON" tone="loss" />
+          <div className="my-5 border-t border-edge" />
+          <Line k="net profit" v="-20.00 RON" tone="loss" big />
+          <p className="mt-8 text-sm leading-6 text-muted">
+            CueProfit calculates this for every campaign and product, then ranks the
+            decisions by expected profit impact.
+          </p>
+        </div>
       </section>
 
-      {/* footer */}
       <footer className="relative border-t border-edge">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-10 text-sm text-faint sm:flex-row">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <Logo />
-          <p className="font-mono text-xs">© {new Date().getFullYear()} CueProfit · built in Bucharest</p>
+          <p className="font-mono text-xs">Built in Bucharest · {new Date().getFullYear()}</p>
           <div className="flex items-center gap-6">
-            <Link href={`${appBaseUrl}/login`} className="transition hover:text-fg">Log in</Link>
-            <a href="#features" className="transition hover:text-fg">Product</a>
-            <ThemeToggle />
+            <a href="#product" className="hover:text-fg">Product</a>
+            <Link href={`${appBaseUrl}/login`} className="hover:text-fg">Log in</Link>
           </div>
         </div>
       </footer>
@@ -228,15 +179,89 @@ export default function Home() {
   );
 }
 
-function Metric({ label, value, tone, trend }: { label: string; value: string; tone: "profit" | "loss"; trend: string }) {
-  const color = tone === "profit" ? "text-profit" : "text-loss";
+function DashboardPreview() {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-edge bg-panel-2/60 px-4 py-3">
-      <span className="font-mono text-[11px] uppercase tracking-wider text-muted">{label}</span>
-      <span className="flex items-baseline gap-3">
-        <span className={`font-mono text-lg font-semibold nums ${color}`}>{value}</span>
-        <span className="font-mono text-[11px] text-faint">{trend}</span>
-      </span>
+    <div className="relative">
+      <div className="absolute -left-6 top-12 hidden h-48 w-28 rounded-[8px] border border-edge bg-panel shadow-design md:block" />
+      <div className="relative overflow-hidden rounded-[10px] border border-edge bg-panel shadow-design">
+        <div className="flex items-center justify-between border-b border-edge bg-panel-2 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-loss" />
+            <span className="h-2.5 w-2.5 rounded-full bg-amber" />
+            <span className="h-2.5 w-2.5 rounded-full bg-profit" />
+          </div>
+          <span className="font-mono text-xs text-faint">cueprofit / last 7 days</span>
+        </div>
+        <div className="grid min-h-[620px] md:grid-cols-[172px_1fr]">
+          <aside className="hidden border-r border-edge bg-canvas/55 p-4 md:block">
+            {["Overview", "Campaigns", "Products", "Feed", "Actions"].map((item, index) => (
+              <div
+                key={item}
+                className={`mb-2 rounded-[8px] px-3 py-2 text-sm ${index === 0 ? "bg-fg text-canvas" : "text-muted"}`}
+              >
+                {item}
+              </div>
+            ))}
+          </aside>
+          <div className="p-4 sm:p-6">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <MiniCard label="NET PROFIT" value="+12,480" tone="profit" />
+              <MiniCard label="POAS" value="2.94" tone="profit" />
+              <MiniCard label="WASTED" value="-740" tone="loss" />
+            </div>
+
+            <div className="mt-4 rounded-[8px] border border-edge bg-canvas p-5">
+              <div className="mb-5 flex items-center justify-between">
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">Profit curve</p>
+                  <p className="mt-1 text-sm text-faint">Spend-weighted contribution by day</p>
+                </div>
+                <span className="rounded-full bg-profit/12 px-3 py-1 font-mono text-xs text-profit">+18%</span>
+              </div>
+              <div className="flex h-48 items-end gap-2">
+                {bars.map((bar, index) => (
+                  <span
+                    key={index}
+                    className={`flex-1 rounded-t-[5px] ${index === 2 || index === 7 ? "bg-loss/70" : "bg-profit/75"}`}
+                    style={{ height: `${bar}%` }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 overflow-hidden rounded-[8px] border border-edge bg-panel">
+              {rows.map(([name, profit, poas, action]) => (
+                <div key={name} className="grid grid-cols-[1.6fr_1fr_0.7fr_0.8fr] gap-3 border-b border-edge px-4 py-3 text-sm last:border-b-0">
+                  <span className="truncate text-fg">{name}</span>
+                  <span className={profit.startsWith("-") ? "text-loss" : "text-profit"}>{profit}</span>
+                  <span className="text-muted">{poas}</span>
+                  <span className="text-right font-medium text-fg">{action}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MetricStat({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="py-10 md:px-10">
+      <p className="font-display text-5xl font-semibold text-fg sm:text-6xl">{value}</p>
+      <p className="mt-3 max-w-xs text-sm leading-6 text-muted">{label}</p>
+    </div>
+  );
+}
+
+function MiniCard({ label, value, tone }: { label: string; value: string; tone: "profit" | "loss" }) {
+  return (
+    <div className="rounded-[8px] border border-edge bg-panel p-4">
+      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-faint">{label}</p>
+      <p className={`mt-5 font-mono text-2xl font-semibold nums ${tone === "profit" ? "text-profit" : "text-loss"}`}>
+        {value}
+      </p>
     </div>
   );
 }
@@ -244,9 +269,9 @@ function Metric({ label, value, tone, trend }: { label: string; value: string; t
 function Line({ k, v, tone, big }: { k: string; v: string; tone?: "profit" | "loss"; big?: boolean }) {
   const color = tone === "profit" ? "text-profit" : tone === "loss" ? "text-loss" : "text-muted";
   return (
-    <div className="flex items-center justify-between py-1">
-      <span className={`text-faint ${big ? "font-semibold text-fg" : ""}`}>{k}</span>
-      <span className={`${color} ${big ? "text-base font-bold" : ""}`}>{v}</span>
+    <div className={`flex items-center justify-between border-b border-edge py-4 last:border-b-0 ${big ? "text-lg" : "text-sm"}`}>
+      <span className="text-muted">{k}</span>
+      <span className={`font-mono font-semibold ${color}`}>{v}</span>
     </div>
   );
 }

@@ -43,6 +43,27 @@ wheels = [
 ]
 
 [[package]]
+name = "cueprofit-google-clients"
+version = "0.0.0"
+source = { editable = "../../packages/google-clients" }
+
+[package.metadata]
+requires-dist = [
+    { name = "google-ads", marker = "extra == 'ads'", specifier = ">=25" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
+]
+provides-extras = ["dev", "ads"]
+
+[[package]]
+name = "cueprofit-identity-resolver"
+version = "0.0.0"
+source = { editable = "../../packages/identity-resolver" }
+
+[package.metadata]
+requires-dist = [{ name = "pytest", marker = "extra == 'dev'", specifier = ">=8" }]
+provides-extras = ["dev"]
+
+[[package]]
 name = "cueprofit-profit-engine"
 version = "0.0.0"
 source = { editable = "../../packages/profit-engine" }
@@ -52,11 +73,26 @@ requires-dist = [{ name = "pytest", marker = "extra == 'dev'", specifier = ">=8"
 provides-extras = ["dev"]
 
 [[package]]
+name = "cueprofit-security"
+version = "0.0.0"
+source = { editable = "../../packages/security" }
+
+[package.metadata]
+requires-dist = [
+    { name = "google-cloud-kms", marker = "extra == 'kms'", specifier = ">=3.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
+]
+provides-extras = ["dev", "kms"]
+
+[[package]]
 name = "cueprofit-workers"
 version = "0.0.0"
 source = { editable = "." }
 dependencies = [
+    { name = "cueprofit-google-clients" },
+    { name = "cueprofit-identity-resolver" },
     { name = "cueprofit-profit-engine" },
+    { name = "cueprofit-security" },
     { name = "httpx" },
     { name = "pydantic-settings" },
 ]
@@ -68,7 +104,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cueprofit-google-clients", editable = "../../packages/google-clients" },
+    { name = "cueprofit-identity-resolver", editable = "../../packages/identity-resolver" },
     { name = "cueprofit-profit-engine", editable = "../../packages/profit-engine" },
+    { name = "cueprofit-security", editable = "../../packages/security" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "pydantic-settings", specifier = ">=2.5" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },

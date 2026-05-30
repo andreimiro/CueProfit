@@ -7,6 +7,9 @@ dependencies = [
     "httpx>=0.27",
     "pydantic-settings>=2.5",
     "cueprofit-profit-engine",
+    "cueprofit-google-clients",
+    "cueprofit-identity-resolver",
+    "cueprofit-security",
 ]
 
 [project.optional-dependencies]
@@ -24,6 +27,9 @@ packages = ["src/cueprofit_workers"]
 
 [tool.uv.sources]
 cueprofit-profit-engine = { path = "../../packages/profit-engine", editable = true }
+cueprofit-google-clients = { path = "../../packages/google-clients", editable = true }
+cueprofit-identity-resolver = { path = "../../packages/identity-resolver", editable = true }
+cueprofit-security = { path = "../../packages/security", editable = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

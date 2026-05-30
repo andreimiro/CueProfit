@@ -9,6 +9,7 @@ dependencies = [
     "pydantic-settings>=2.5",
     "httpx>=0.27",
     "cueprofit-profit-engine",
+    "cueprofit-security",
 ]
 
 [project.optional-dependencies]
@@ -23,6 +24,7 @@ packages = ["src/cueprofit_api"]
 
 [tool.uv.sources]
 cueprofit-profit-engine = { path = "../../packages/profit-engine", editable = true }
+cueprofit-security = { path = "../../packages/security", editable = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

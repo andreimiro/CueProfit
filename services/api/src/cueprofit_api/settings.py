@@ -30,6 +30,23 @@ class Settings(BaseSettings):
     # Shared secret the Next.js BFF uses to call this service.
     python_api_internal_token: str = ""
 
+    # Google data-connection OAuth (our own offline flow)
+    google_ads_oauth_client_id: str = ""
+    google_ads_oauth_client_secret: str = ""
+    google_ads_oauth_redirect_uri: str = ""
+    google_ads_developer_token: str = ""
+    # Secret used to HMAC-sign the OAuth state token. Falls back to the internal
+    # token if unset (both are server-only secrets).
+    oauth_state_secret: str = ""
+
+    @property
+    def state_secret(self) -> str:
+        if self.oauth_state_secret:
+            return self.oauth_state_secret
+        if self.app_env == "development":
+            return self.python_api_internal_token  # dev convenience only
+        raise RuntimeError("OAUTH_STATE_SECRET is required outside development")
+
 
 @lru_cache
 def get_settings() -> Settings:
