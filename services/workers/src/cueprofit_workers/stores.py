@@ -11,7 +11,17 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Protocol
 
-from google_clients.mappers import CampaignDailyStat, ProductDailyStat
+from google_clients.mappers import (
+    CampaignDailyStat,
+    ChangeEvent,
+    ConversionAction,
+    CustomerSnapshot,
+    GeographicDailyStat,
+    KeywordDailyStat,
+    ProductDailyStat,
+    RecommendationSnapshot,
+    SearchTermDailyStat,
+)
 from google_clients.merchant_mappers import MerchantCatalogProduct
 
 
@@ -26,6 +36,13 @@ class StatsStore(Protocol):
     def finish_sync_run(self, *, run_id: str, status: str, rows_written: int, cursor: dict | None, error: str | None) -> None: ...
     def upsert_campaign_stats(self, *, workspace_id: str, rows: list[CampaignDailyStat]) -> int: ...
     def upsert_product_stats(self, *, workspace_id: str, rows: list[ProductDailyStat]) -> int: ...
+    def upsert_google_ads_customers(self, *, workspace_id: str, rows: list[CustomerSnapshot]) -> int: ...
+    def upsert_conversion_actions(self, *, workspace_id: str, rows: list[ConversionAction]) -> int: ...
+    def upsert_search_term_stats(self, *, workspace_id: str, rows: list[SearchTermDailyStat]) -> int: ...
+    def upsert_keyword_stats(self, *, workspace_id: str, rows: list[KeywordDailyStat]) -> int: ...
+    def upsert_geographic_stats(self, *, workspace_id: str, rows: list[GeographicDailyStat]) -> int: ...
+    def upsert_google_ads_recommendations(self, *, workspace_id: str, rows: list[RecommendationSnapshot]) -> int: ...
+    def upsert_google_ads_change_events(self, *, workspace_id: str, rows: list[ChangeEvent]) -> int: ...
     def upsert_catalog_products(self, *, workspace_id: str, rows: list[MerchantCatalogProduct]) -> int: ...
     def list_products(self, workspace_id: str) -> list[dict]: ...
     def list_unresolved_ads_items(self, workspace_id: str) -> list[dict]: ...
@@ -42,6 +59,13 @@ class FakeStatsStore:
         self.runs: list[dict] = []
         self.campaign: list[tuple[str, CampaignDailyStat]] = []
         self.product: list[tuple[str, ProductDailyStat]] = []
+        self.google_ads_customers: list[tuple[str, CustomerSnapshot]] = []
+        self.conversion_actions: list[tuple[str, ConversionAction]] = []
+        self.search_terms: list[tuple[str, SearchTermDailyStat]] = []
+        self.keywords: list[tuple[str, KeywordDailyStat]] = []
+        self.geographic: list[tuple[str, GeographicDailyStat]] = []
+        self.google_ads_recommendations: list[tuple[str, RecommendationSnapshot]] = []
+        self.change_events: list[tuple[str, ChangeEvent]] = []
         self.identity: list[tuple[str, dict]] = []
         self.links: list[tuple[str, str, str]] = []
         self.products: list[dict] = []
@@ -65,6 +89,34 @@ class FakeStatsStore:
 
     def upsert_product_stats(self, *, workspace_id, rows) -> int:
         self.product.extend((workspace_id, r) for r in rows)
+        return len(rows)
+
+    def upsert_google_ads_customers(self, *, workspace_id, rows) -> int:
+        self.google_ads_customers.extend((workspace_id, r) for r in rows)
+        return len(rows)
+
+    def upsert_conversion_actions(self, *, workspace_id, rows) -> int:
+        self.conversion_actions.extend((workspace_id, r) for r in rows)
+        return len(rows)
+
+    def upsert_search_term_stats(self, *, workspace_id, rows) -> int:
+        self.search_terms.extend((workspace_id, r) for r in rows)
+        return len(rows)
+
+    def upsert_keyword_stats(self, *, workspace_id, rows) -> int:
+        self.keywords.extend((workspace_id, r) for r in rows)
+        return len(rows)
+
+    def upsert_geographic_stats(self, *, workspace_id, rows) -> int:
+        self.geographic.extend((workspace_id, r) for r in rows)
+        return len(rows)
+
+    def upsert_google_ads_recommendations(self, *, workspace_id, rows) -> int:
+        self.google_ads_recommendations.extend((workspace_id, r) for r in rows)
+        return len(rows)
+
+    def upsert_google_ads_change_events(self, *, workspace_id, rows) -> int:
+        self.change_events.extend((workspace_id, r) for r in rows)
         return len(rows)
 
     def upsert_catalog_products(self, *, workspace_id, rows) -> int:
@@ -129,6 +181,100 @@ def _product_row(workspace_id: str, s: ProductDailyStat) -> dict:
         "impressions": s.impressions, "clicks": s.clicks, "spend": float(s.spend),
         "conversions": float(s.conversions), "conversion_value": float(s.conversion_value),
         "currency": s.currency,
+    }
+
+
+def _customer_row(workspace_id: str, c: CustomerSnapshot) -> dict:
+    return {
+        "workspace_id": workspace_id,
+        "customer_id": c.customer_id,
+        "descriptive_name": c.descriptive_name,
+        "currency": c.currency,
+        "time_zone": c.time_zone,
+        "status": c.status,
+        "manager": c.manager,
+        "test_account": c.test_account,
+        "optimization_score": float(c.optimization_score) if c.optimization_score is not None else None,
+        "synced_at": _utc_now_iso(),
+    }
+
+
+def _conversion_action_row(workspace_id: str, c: ConversionAction) -> dict:
+    return {
+        "workspace_id": workspace_id,
+        "customer_id": c.customer_id,
+        "conversion_action_id": c.conversion_action_id,
+        "name": c.name,
+        "category": c.category,
+        "type": c.action_type,
+        "status": c.status,
+        "primary_for_goal": c.primary_for_goal,
+        "synced_at": _utc_now_iso(),
+    }
+
+
+def _search_term_row(workspace_id: str, s: SearchTermDailyStat) -> dict:
+    return {
+        "workspace_id": workspace_id, "date": s.date, "customer_id": s.customer_id,
+        "campaign_id": s.campaign_id, "ad_group_id": s.ad_group_id,
+        "search_term": s.search_term, "device": s.device,
+        "impressions": s.impressions, "clicks": s.clicks, "spend": float(s.spend),
+        "conversions": float(s.conversions), "conversion_value": float(s.conversion_value),
+        "currency": s.currency,
+    }
+
+
+def _keyword_row(workspace_id: str, s: KeywordDailyStat) -> dict:
+    return {
+        "workspace_id": workspace_id, "date": s.date, "customer_id": s.customer_id,
+        "campaign_id": s.campaign_id, "ad_group_id": s.ad_group_id,
+        "criterion_id": s.criterion_id, "keyword_text": s.keyword_text,
+        "match_type": s.match_type, "device": s.device,
+        "impressions": s.impressions, "clicks": s.clicks, "spend": float(s.spend),
+        "conversions": float(s.conversions), "conversion_value": float(s.conversion_value),
+        "currency": s.currency,
+    }
+
+
+def _geographic_row(workspace_id: str, s: GeographicDailyStat) -> dict:
+    return {
+        "workspace_id": workspace_id, "date": s.date, "customer_id": s.customer_id,
+        "campaign_id": s.campaign_id, "country_criterion_id": s.country_criterion_id,
+        "device": s.device, "impressions": s.impressions, "clicks": s.clicks,
+        "spend": float(s.spend), "conversions": float(s.conversions),
+        "conversion_value": float(s.conversion_value), "currency": s.currency,
+    }
+
+
+def _recommendation_row(workspace_id: str, r: RecommendationSnapshot) -> dict:
+    return {
+        "workspace_id": workspace_id,
+        "customer_id": r.customer_id,
+        "resource_name": r.resource_name,
+        "recommendation_type": r.recommendation_type,
+        "campaign_resource_name": r.campaign_resource_name,
+        "base_cost": float(r.base_cost),
+        "potential_cost": float(r.potential_cost),
+        "base_conversions": float(r.base_conversions),
+        "potential_conversions": float(r.potential_conversions),
+        "base_conversion_value": float(r.base_conversion_value),
+        "potential_conversion_value": float(r.potential_conversion_value),
+        "synced_at": _utc_now_iso(),
+    }
+
+
+def _change_event_row(workspace_id: str, e: ChangeEvent) -> dict:
+    return {
+        "workspace_id": workspace_id,
+        "customer_id": e.customer_id,
+        "resource_name": e.resource_name,
+        "change_date_time": e.change_date_time,
+        "change_resource_type": e.change_resource_type,
+        "changed_fields": str(e.changed_fields) if e.changed_fields is not None else None,
+        "client_type": e.client_type,
+        "user_email": e.user_email,
+        "old_resource": e.old_resource if isinstance(e.old_resource, dict) else None,
+        "new_resource": e.new_resource if isinstance(e.new_resource, dict) else None,
     }
 
 
@@ -232,6 +378,97 @@ class SupabaseStatsStore:
             return self._upsert(client, "product_daily_stats",
                                 "workspace_id,date,customer_id,campaign_id,ads_item_id",
                                 [_product_row(workspace_id, s) for s in rows])
+        finally:
+            if self._http is None:
+                client.close()
+
+    def upsert_google_ads_customers(self, *, workspace_id, rows) -> int:
+        client = self._client()
+        try:
+            return self._upsert(
+                client,
+                "google_ads_customers",
+                "workspace_id,customer_id",
+                [_customer_row(workspace_id, c) for c in rows],
+            )
+        finally:
+            if self._http is None:
+                client.close()
+
+    def upsert_conversion_actions(self, *, workspace_id, rows) -> int:
+        client = self._client()
+        try:
+            return self._upsert(
+                client,
+                "google_ads_conversion_actions",
+                "workspace_id,customer_id,conversion_action_id",
+                [_conversion_action_row(workspace_id, c) for c in rows],
+            )
+        finally:
+            if self._http is None:
+                client.close()
+
+    def upsert_search_term_stats(self, *, workspace_id, rows) -> int:
+        client = self._client()
+        try:
+            return self._upsert(
+                client,
+                "search_term_daily_stats",
+                "workspace_id,date,customer_id,campaign_id,ad_group_id,search_term,device",
+                [_search_term_row(workspace_id, s) for s in rows],
+            )
+        finally:
+            if self._http is None:
+                client.close()
+
+    def upsert_keyword_stats(self, *, workspace_id, rows) -> int:
+        client = self._client()
+        try:
+            return self._upsert(
+                client,
+                "keyword_daily_stats",
+                "workspace_id,date,customer_id,campaign_id,ad_group_id,criterion_id,device",
+                [_keyword_row(workspace_id, s) for s in rows],
+            )
+        finally:
+            if self._http is None:
+                client.close()
+
+    def upsert_geographic_stats(self, *, workspace_id, rows) -> int:
+        client = self._client()
+        try:
+            return self._upsert(
+                client,
+                "geographic_daily_stats",
+                "workspace_id,date,customer_id,campaign_id,country_criterion_id,device",
+                [_geographic_row(workspace_id, s) for s in rows],
+            )
+        finally:
+            if self._http is None:
+                client.close()
+
+    def upsert_google_ads_recommendations(self, *, workspace_id, rows) -> int:
+        client = self._client()
+        try:
+            return self._upsert(
+                client,
+                "google_ads_recommendation_snapshots",
+                "workspace_id,customer_id,resource_name",
+                [_recommendation_row(workspace_id, r) for r in rows],
+            )
+        finally:
+            if self._http is None:
+                client.close()
+
+    def upsert_google_ads_change_events(self, *, workspace_id, rows) -> int:
+        client = self._client()
+        try:
+            return self._upsert(
+                client,
+                "google_ads_change_events",
+                "workspace_id,customer_id,resource_name",
+                [_change_event_row(workspace_id, e) for e in rows],
+            )
         finally:
             if self._http is None:
                 client.close()
