@@ -83,6 +83,7 @@ def aggregate_facts(facts: list[dict]) -> list[EntitySummary]:
             poas=round(gp / spend, 4) if spend > 0 else None,
             roas=round(rev / spend, 4) if spend > 0 else None,
             net_poas=round(net / spend, 4) if spend > 0 else None,
+            # report the WORST (lowest-rank) confidence across the entity's days
             confidence=min(confs, key=lambda c: _CONF_RANK.get(c, 0)) if confs else None,
             currency=g["currency"], days=g["days"],
         ))
@@ -110,7 +111,12 @@ def _rec(summary: EntitySummary, ws: dict, period, *, kind, rule_key, severity,
 
 
 def evaluate(summary: EntitySummary, thresholds: dict | None, ws: dict, period) -> Optional[dict]:
-    """Return the single recommendation this entity warrants, or None."""
+    """Return the single recommendation this entity warrants, or None.
+
+    The cascade is mutually exclusive but intentionally NOT exhaustive: a healthy,
+    profitable entity without scale headroom (net > 0, poas < scale multiplier)
+    correctly yields no recommendation — there's nothing to act on.
+    """
     if summary.entity_type not in ACTIONABLE_ENTITIES:
         return None
     t = {**DEFAULT_THRESHOLDS, **(thresholds or {})}

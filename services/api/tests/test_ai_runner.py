@@ -102,6 +102,19 @@ def test_run_copilot_executes_requested_tool_then_returns_final_answer():
     assert any(m["role"] == "tool" for m in client.seen[-1])
 
 
+def test_run_copilot_caps_tool_calls_per_step():
+    store = _store()
+    flood = AssistantTurn(content=None, tool_calls=[
+        ToolCall(id=f"c{i}", name="get_profit_summary", arguments={}) for i in range(20)])
+    client = FakeLLMClient([flood, AssistantTurn(content="done", tool_calls=[])])
+    result = run_copilot(client=client, store=store, workspace_id=WS, question="x",
+                         max_tool_calls_per_step=8)
+    assert len(result.steps) == 8 and result.answer == "done"
+    # the assistant message must only claim the calls we actually answered (protocol-valid)
+    assistant_msg = next(m for m in result.messages if m["role"] == "assistant")
+    assert len(assistant_msg["tool_calls"]) == 8
+
+
 def test_run_copilot_stops_at_max_steps_when_model_loops():
     store = _store()
     looping = AssistantTurn(content=None, tool_calls=[

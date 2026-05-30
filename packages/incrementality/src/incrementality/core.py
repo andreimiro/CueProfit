@@ -98,7 +98,8 @@ def _cv(values: list[float]) -> float:
     mean = statistics.mean(values) if values else 0.0
     if mean == 0:
         return 0.0
-    return statistics.pstdev(values) / mean
+    # coefficient of variation is non-negative by definition (σ / |μ|)
+    return statistics.pstdev(values) / abs(mean)
 
 
 def _confidence(days: int, r2: float, spend_cv: float) -> tuple[str, dict]:
@@ -139,8 +140,12 @@ def estimate_incrementality(observations, *, margin_rate: float) -> Incrementali
     preds = [_dot(x[i], coefs) for i in range(n)]
     r2 = _r_squared(y, preds)
 
-    baseline_revenue = sum(max(0.0, preds[i] - beta * obs[i].spend) for i in range(n))
-    incremental_revenue = max(0.0, beta) * spend_total  # never claim a negative-response confound
+    # Attribute only a non-negative ad response (never claim a negative-response confound),
+    # and use that SAME effective beta for the baseline so the decomposition is exact:
+    # baseline + incremental == Σ fitted revenue (no asymmetric per-day clamp).
+    beta_eff = max(0.0, beta)
+    incremental_revenue = beta_eff * spend_total
+    baseline_revenue = sum(preds) - incremental_revenue
     incremental_profit = incremental_revenue * margin_rate - spend_total
     confidence, factors = _confidence(n, r2, spend_cv)
 

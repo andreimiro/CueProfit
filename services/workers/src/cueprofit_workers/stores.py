@@ -8,9 +8,16 @@ daily/lag re-pull overwrites the same (workspace, date, entity) rows.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Protocol
 
 from google_clients.mappers import CampaignDailyStat, ProductDailyStat
+
+
+def _utc_now_iso() -> str:
+    # PostgREST stores JSON values verbatim: a timestamptz column needs a real ISO
+    # timestamp, not the literal string "now()" (which Postgres can't parse).
+    return datetime.now(timezone.utc).isoformat()
 
 
 class StatsStore(Protocol):
@@ -126,7 +133,7 @@ class SupabaseStatsStore:
                 headers={"Prefer": "return=representation"},
                 json={"workspace_id": workspace_id, "provider": provider, "kind": kind,
                       "connection_id": connection_id, "status": "running",
-                      "started_at": "now()"},
+                      "started_at": _utc_now_iso()},
             )
             resp.raise_for_status()
             return resp.json()[0]["id"]
@@ -141,7 +148,7 @@ class SupabaseStatsStore:
                 f"{self._rest}/sync_runs",
                 params={"id": f"eq.{run_id}"},
                 json={"status": status, "rows_written": rows_written, "cursor": cursor,
-                      "error": error, "finished_at": "now()"},
+                      "error": error, "finished_at": _utc_now_iso()},
             ).raise_for_status()
         finally:
             if self._http is None:

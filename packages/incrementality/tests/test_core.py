@@ -27,6 +27,8 @@ def test_recovers_marginal_response_and_splits_baseline_vs_incremental():
     assert r.spend_total == 1680.0 and r.actual_revenue == 11200.0
     assert r.r_squared > 0.99
     assert r.method == "projected_baseline_ols"
+    # decomposition invariant: baseline + incremental reconstructs the fitted total (≈ actual at r²≈1)
+    assert abs(r.baseline_revenue + r.incremental_revenue - r.actual_revenue) < 60
 
 
 def test_incremental_profit_applies_margin_then_subtracts_spend():
@@ -69,3 +71,5 @@ def test_negative_marginal_response_is_clamped_to_zero_incremental():
     r = estimate_incrementality(obs, margin_rate=0.5)
     assert r.marginal_roas < 0
     assert r.incremental_revenue == 0.0
+    # nothing attributed → the baseline must equal (not exceed) the fitted/actual revenue
+    assert abs(r.baseline_revenue - r.actual_revenue) < 50

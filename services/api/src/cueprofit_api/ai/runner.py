@@ -72,21 +72,22 @@ def parse_assistant_turn(response: dict) -> AssistantTurn:
     return AssistantTurn(content=message.get("content"), tool_calls=calls)
 
 
-def _assistant_message(turn: AssistantTurn) -> dict:
+def _assistant_message(content: Optional[str], calls: list[ToolCall]) -> dict:
     return {
         "role": "assistant",
-        "content": turn.content,
+        "content": content,
         "tool_calls": [
             {"id": tc.id, "type": "function",
              "function": {"name": tc.name, "arguments": json.dumps(tc.arguments)}}
-            for tc in turn.tool_calls
+            for tc in calls
         ],
     }
 
 
 # ── agent loop ───────────────────────────────────────────────────────────────
 def run_copilot(*, client: LLMClient, store: CopilotStore, workspace_id: str, question: str,
-                system_prompt: str = DEFAULT_SYSTEM, max_steps: int = 6) -> CopilotResult:
+                system_prompt: str = DEFAULT_SYSTEM, max_steps: int = 6,
+                max_tool_calls_per_step: int = 8) -> CopilotResult:
     messages: list[dict] = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": question},
@@ -99,8 +100,12 @@ def run_copilot(*, client: LLMClient, store: CopilotStore, workspace_id: str, qu
         turn = client.complete(messages=messages, tools=tools)
         if not turn.tool_calls:
             return CopilotResult(answer=turn.content or "", steps=steps, messages=messages)
-        messages.append(_assistant_message(turn))
-        for tc in turn.tool_calls:
+        # Cap fan-out: only acknowledge (in the assistant message) and execute the calls we
+        # answer, so a misbehaving model can't trigger hundreds of DB queries per step and the
+        # tool_calls/tool message pairing stays protocol-valid.
+        calls = turn.tool_calls[:max_tool_calls_per_step]
+        messages.append(_assistant_message(turn.content, calls))
+        for tc in calls:
             result = dispatch_tool(store, workspace_id, tc.name, tc.arguments)
             steps.append({"tool": tc.name, "arguments": tc.arguments, "result": result})
             messages.append({"role": "tool", "tool_call_id": tc.id, "name": tc.name,
