@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from cueprofit_api.env import default_supabase_url, root_env_file
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=root_env_file(), extra="ignore")
 
     app_env: str = "development"
 
@@ -37,10 +40,32 @@ class Settings(BaseSettings):
     google_ads_oauth_client_id: str = ""
     google_ads_oauth_client_secret: str = ""
     google_ads_oauth_redirect_uri: str = ""
+    google_merchant_oauth_redirect_uri: str = ""
     google_ads_developer_token: str = ""
+
+    @property
+    def merchant_oauth_redirect_uri(self) -> str:
+        if self.google_merchant_oauth_redirect_uri:
+            return self.google_merchant_oauth_redirect_uri
+        if self.google_ads_oauth_redirect_uri:
+            return self.google_ads_oauth_redirect_uri.replace(
+                "/api/connect/google/callback", "/api/connect/merchant/callback"
+            )
+        return ""
     # Secret used to HMAC-sign the OAuth state token. Falls back to the internal
     # token if unset (both are server-only secrets).
     oauth_state_secret: str = ""
+
+    # Worker orchestration (see sync_workspace job)
+    workers_cloud_run_job: str = ""
+    # Dev-only: spawn `cueprofit-workers sync_workspace` locally after connect.
+    workers_inline_sync: bool = False
+
+    @model_validator(mode="after")
+    def _fill_defaults(self) -> Settings:
+        if not self.supabase_url:
+            self.supabase_url = default_supabase_url(self.supabase_url)
+        return self
 
     @property
     def state_secret(self) -> str:

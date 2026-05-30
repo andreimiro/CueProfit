@@ -2,15 +2,28 @@ import type { ReactNode } from "react";
 
 import {
   type AccountFact,
+  type CampaignMeta,
+  type EntityFact,
   type Recommendation,
+  aggregateEntityFacts,
+  campaignMetaById,
+  deriveAction,
   formatMoney,
   netProfitBars,
   severityTone,
   summarizeAccountFacts,
 } from "@/lib/dashboard";
 
+import type { WorkspaceSources } from "@/lib/workspace";
+
 import { EmptyState, Panel, PanelHeader, StatusTag } from "./cards";
-import { ConnectGoogleButton, DateRangePill, SearchField } from "./controls";
+import {
+  AddProductCostsButton,
+  ConnectGoogleButton,
+  ConnectMerchantButton,
+  DateRangePill,
+  SearchField,
+} from "./controls";
 import { Icon } from "./icons";
 import { PageHeader } from "./page-header";
 
@@ -54,14 +67,29 @@ const TONE_TEXT: Record<string, string> = {
 export function Overview({
   currency = "RON",
   facts = [],
+  sources,
   hasGoogleAdsConnection = false,
+  hasMerchantConnection = false,
+  hasProductCosts = false,
+  setupCount = 0,
   recommendations = [],
+  campaignRows = [],
+  campaignMeta,
 }: {
   currency?: string;
   facts?: AccountFact[];
+  sources?: WorkspaceSources;
   hasGoogleAdsConnection?: boolean;
+  hasMerchantConnection?: boolean;
+  hasProductCosts?: boolean;
+  setupCount?: number;
   recommendations?: Recommendation[];
+  campaignRows?: ReturnType<typeof aggregateEntityFacts>;
+  campaignMeta?: Map<string, CampaignMeta>;
 }) {
+  const adsSyncing = sources?.googleAds.syncState === "syncing";
+  const adsReady = sources?.googleAds.syncState === "ready";
+  const adsLabel = sources?.googleAds.label;
   const summary = summarizeAccountFacts(facts, currency);
   const bars = netProfitBars(facts);
   const kpis = [
@@ -91,6 +119,33 @@ export function Overview({
     },
   ] as const;
 
+  const setupHeadline =
+    summary.hasData
+      ? "Live profit from your connected sources"
+      : setupCount >= 3
+        ? adsSyncing
+          ? "Setup complete — first sync in progress"
+          : "Setup complete — waiting for synced data"
+        : hasGoogleAdsConnection
+          ? adsSyncing
+            ? "Google Ads connected — syncing your account"
+            : adsReady
+              ? "Google Ads connected"
+              : "Google Ads is connected"
+          : "Finish setup to see live profit";
+  const setupSubline =
+    summary.hasData
+      ? "Numbers refresh on a daily schedule — no extra Google sign-in per page."
+      : setupCount >= 3
+        ? adsSyncing
+          ? `${adsLabel ? `${adsLabel} · ` : ""}Browse freely while the import runs.`
+          : "Campaign sync and profit recompute run on a schedule."
+        : hasGoogleAdsConnection
+          ? adsSyncing
+            ? "Campaign data appears automatically when the import finishes."
+            : "Next, connect Merchant Center and add product costs."
+          : "Three quick steps. You can start with Google Ads now.";
+
   return (
     <div className="px-5 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto w-full max-w-[1760px] animate-reveal space-y-7">
@@ -114,31 +169,33 @@ export function Overview({
                 <Icon name="spark" width={20} height={20} />
               </span>
               <div>
-                <p className="font-display text-base font-semibold">
-                  {hasGoogleAdsConnection ? "Google Ads is connected" : "Finish setup to see live profit"}
-                </p>
-                <p className="text-sm text-muted">
-                  {hasGoogleAdsConnection
-                    ? "Next, connect Merchant Center and add product costs."
-                    : "Three quick steps. You can start with Google Ads now."}
-                </p>
+                <p className="font-display text-base font-semibold">{setupHeadline}</p>
+                <p className="text-sm text-muted">{setupSubline}</p>
               </div>
             </div>
             <span className="inline-flex w-fit items-center gap-2 rounded-full border border-edge bg-panel px-3 py-1.5 text-xs font-semibold text-muted">
               <span className="h-1.5 w-1.5 rounded-full bg-amber" />
-              {hasGoogleAdsConnection ? "1 of 3 connected" : "0 of 3 connected"}
+              {setupCount} of 3 connected
             </span>
           </div>
           <div className="grid gap-px bg-edge sm:grid-cols-3">
             {SETUP_STEPS.map((step) => {
               const isGoogleAdsStep = step.n === 1;
-              const isUnlocked = step.n > 1 && hasGoogleAdsConnection;
+              const isMerchantStep = step.n === 2;
+              const isCostsStep = step.n === 3;
+              const isUnlocked =
+                (isMerchantStep || isCostsStep) && hasGoogleAdsConnection;
+              const isDone =
+                (isGoogleAdsStep && hasGoogleAdsConnection) ||
+                (isMerchantStep && hasMerchantConnection) ||
+                (isCostsStep && hasProductCosts);
+
               return (
               <div key={step.n} className="bg-panel p-5">
                 <div className="flex items-center gap-3">
                   <span
                     className={`grid h-7 w-7 place-items-center rounded-full text-sm font-semibold ${
-                      isGoogleAdsStep
+                      isDone
                         ? "bg-profit text-on-profit"
                         : isUnlocked
                           ? "border border-profit/30 bg-profit/10 text-profit"
@@ -151,17 +208,26 @@ export function Overview({
                 </div>
                 <p className="mt-2.5 text-sm leading-6 text-muted">{step.desc}</p>
                 <div className="mt-4">
-                  {isGoogleAdsStep ? (
-                    hasGoogleAdsConnection ? (
-                      connectedLabel
+                  {isDone ? (
+                    connectedLabel
+                  ) : isGoogleAdsStep && hasGoogleAdsConnection ? (
+                    adsSyncing ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber">
+                        <span className="relative flex h-2 w-2">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber/60 opacity-75" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-amber" />
+                        </span>
+                        Syncing
+                      </span>
                     ) : (
-                      <ConnectGoogleButton />
+                      connectedLabel
                     )
-                  ) : isUnlocked ? (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-profit">
-                      <Icon name="chevronRight" width={14} height={14} />
-                      Ready
-                    </span>
+                  ) : isGoogleAdsStep ? (
+                    <ConnectGoogleButton />
+                  ) : isMerchantStep && isUnlocked ? (
+                    <ConnectMerchantButton variant="secondary" />
+                  ) : isCostsStep && isUnlocked ? (
+                    <AddProductCostsButton />
                   ) : (
                     <span className="inline-flex items-center gap-1.5 text-xs font-medium text-faint">
                       <Icon name="chevronRight" width={14} height={14} />
@@ -178,7 +244,14 @@ export function Overview({
         {/* KPI row */}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {kpis.map((kpi) => (
-            <KpiCard key={kpi.label} label={kpi.label} value={kpi.value} hint={kpi.hint} tone={kpi.tone} />
+            <KpiCard
+              key={kpi.label}
+              label={kpi.label}
+              value={kpi.value}
+              hint={kpi.hint}
+              tone={kpi.tone}
+              hasData={summary.hasData && kpi.value !== "—"}
+            />
           ))}
         </div>
 
@@ -208,11 +281,21 @@ export function Overview({
                       <Icon name="trendUp" width={22} height={22} />
                     </span>
                     <p className="font-display text-base font-semibold">
-                      {hasGoogleAdsConnection ? "Your first sync is pending" : "Your profit curve appears after the first sync"}
+                      {hasGoogleAdsConnection
+                        ? adsSyncing
+                          ? "Your first sync is in progress"
+                          : summary.hasData
+                            ? "Daily net profit"
+                            : "Your profit curve appears after the first sync"
+                        : "Your profit curve appears after the first sync"}
                     </p>
                     <p className="text-sm leading-6 text-muted">
                       {hasGoogleAdsConnection
-                        ? "Google Ads is connected. Profit data will appear after campaigns sync."
+                        ? adsSyncing
+                          ? "Google Ads is connected. Profit data will appear after campaigns sync."
+                          : summary.hasData
+                            ? "Connected workspace data — updated on the daily sync schedule."
+                            : "Profit data is still processing from your connected account."
                         : "Connect Google Ads to chart net profit by day, with loss days flagged."}
                     </p>
                     {!hasGoogleAdsConnection ? <ConnectGoogleButton variant="secondary" /> : null}
@@ -274,12 +357,42 @@ export function Overview({
             <span className="text-right">Spend</span>
             <span className="text-right">Action</span>
           </div>
+          {campaignRows.length > 0 ? (
+            <div className="divide-y divide-edge">
+              {campaignRows.slice(0, 6).map((row) => {
+                const m = campaignMeta?.get(row.entityId);
+                const cur = row.currency ?? currency;
+                return (
+                  <div
+                    key={row.entityId}
+                    className="grid grid-cols-[2fr_1fr_0.7fr_1fr_auto] items-center gap-4 px-5 py-4"
+                  >
+                    <p className="truncate font-medium text-fg">
+                      {m?.name ?? `Campaign ${row.entityId}`}
+                    </p>
+                    <p className={`text-right font-mono text-sm ${row.net < 0 ? "text-loss" : "text-profit"}`}>
+                      {formatMoney(row.net, cur)}
+                    </p>
+                    <p className="text-right font-mono text-sm text-muted">
+                      {row.poas != null ? `${row.poas.toFixed(2)}×` : "—"}
+                    </p>
+                    <p className="text-right font-mono text-sm text-muted">{formatMoney(row.spend, cur)}</p>
+                    <div className="flex justify-end">
+                      <StatusTag status={deriveAction(row)} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
           <EmptyState
             icon="campaigns"
-            title="No campaigns yet"
+            title={hasGoogleAdsConnection ? "No campaigns in this period" : "No campaigns yet"}
             description={
               hasGoogleAdsConnection
-                ? "Campaigns will appear after the first Google Ads sync."
+                ? adsSyncing
+                  ? "Campaigns will appear after the first Google Ads sync."
+                  : "Widen the date range or check the Campaigns page for synced data."
                 : "Connect Google Ads to import campaigns and see per-campaign and per-product profit."
             }
             action={!hasGoogleAdsConnection ? <ConnectGoogleButton /> : undefined}
@@ -292,6 +405,7 @@ export function Overview({
               <StatusTag status="Pause" />
             </div>
           </EmptyState>
+          )}
         </Panel>
       </div>
     </div>
@@ -303,11 +417,13 @@ function KpiCard({
   value,
   hint,
   tone,
+  hasData,
 }: {
   label: string;
   value: string;
   hint: string;
   tone: "profit" | "loss" | "neutral";
+  hasData: boolean;
 }): ReactNode {
   const dot =
     tone === "loss" ? "bg-loss" : tone === "profit" ? "bg-profit" : "bg-faint";
@@ -318,9 +434,11 @@ function KpiCard({
           <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
           {label}
         </span>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-panel-2 px-2 py-0.5 text-[11px] font-medium text-faint">
-          Awaiting data
-        </span>
+        {!hasData ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-panel-2 px-2 py-0.5 text-[11px] font-medium text-faint">
+            Awaiting data
+          </span>
+        ) : null}
       </div>
       <p className={`mt-6 font-mono text-4xl font-semibold nums ${value === "—" ? "text-faint" : TONE_TEXT[tone] ?? "text-fg"}`}>{value}</p>
       <svg

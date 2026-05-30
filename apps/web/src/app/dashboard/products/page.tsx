@@ -1,7 +1,8 @@
-import { EmptyState, Panel, PanelHeader } from "@/components/app/cards";
-import { ConnectGoogleButton } from "@/components/app/controls";
+import { Panel, PanelHeader } from "@/components/app/cards";
+import { DataSourceEmpty, GoogleAdsHeaderAction } from "@/components/app/data-source-empty";
 import { PageHeader } from "@/components/app/page-header";
 import { type EntityFact, aggregateEntityFacts, formatMoney } from "@/lib/dashboard";
+import { loadDashboardWorkspace } from "@/lib/dashboard-workspace";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,6 @@ export const revalidate = 0;
 
 const COLS = "grid-cols-[2.2fr_1fr_0.7fr_1fr_1fr_0.9fr]";
 
-// profit-engine confidence → how the per-SKU cost was derived.
 const COST_BADGE: Record<string, { label: string; cls: string }> = {
   high: { label: "Exact cost", cls: "border-profit/30 bg-profit/12 text-profit" },
   medium: { label: "Est. margin", cls: "border-amber/30 bg-amber/12 text-amber" },
@@ -17,13 +17,8 @@ const COST_BADGE: Record<string, { label: string; cls: string }> = {
 };
 
 export default async function ProductsPage() {
+  const { workspaceId, currency, sources } = await loadDashboardWorkspace();
   const supabase = await createClient();
-  const { data: memberships } = await supabase
-    .from("workspace_members")
-    .select("workspace_id, workspaces(currency)");
-  const membership = memberships?.[0];
-  const workspaceId = membership?.workspace_id as string | undefined;
-  const currency = (membership?.workspaces as { currency?: string } | null)?.currency ?? "RON";
 
   let rows: ReturnType<typeof aggregateEntityFacts> = [];
   if (workspaceId) {
@@ -43,7 +38,7 @@ export default async function ProductsPage() {
         <PageHeader
           title="Products"
           subtitle={`Margin truth per SKU — find the products that lose money after costs · ${currency}`}
-          actions={<ConnectGoogleButton />}
+          actions={<GoogleAdsHeaderAction sources={sources} />}
         />
         <Panel className="overflow-hidden">
           <PanelHeader
@@ -92,12 +87,7 @@ export default async function ProductsPage() {
               </div>
             </div>
           ) : (
-            <EmptyState
-              icon="products"
-              title="No products yet"
-              description="Connect Google Ads (and add product costs) to reveal per-SKU profit, break-even ROAS and margin pressure. Product titles fill in once Merchant Center is connected."
-              action={<ConnectGoogleButton variant="secondary" />}
-            />
+            <DataSourceEmpty sources={sources} source="profit" icon="products" />
           )}
         </Panel>
       </div>

@@ -19,6 +19,7 @@ from cueprofit_api.connections import (
     OAuthExchanger,
     SupabaseConnectionStore,
     discover_google_ads_customers,
+    discover_merchant_accounts,
     persist_connection,
     revoke_google_token,
 )
@@ -30,9 +31,11 @@ from cueprofit_api.oauth import (
     verify_state,
 )
 from cueprofit_api.settings import Settings, get_settings
+from cueprofit_api.worker_trigger import enqueue_workspace_sync
 from cueprofit_security import EncryptedToken
 
-SCOPES = [ADWORDS_SCOPE, CONTENT_SCOPE]
+ADS_SCOPES = [ADWORDS_SCOPE]
+MERCHANT_SCOPES = [CONTENT_SCOPE]
 
 
 def require_internal(authorization: str | None = Header(default=None)) -> None:
@@ -61,8 +64,6 @@ def get_store(settings: Settings = Depends(get_settings)) -> ConnectionStore:
 
 
 def get_cipher_factory(settings: Settings = Depends(get_settings)) -> Callable[[], Any]:
-    # Lazy: build the (KMS) cipher only when we actually encrypt/decrypt, so a
-    # request that fails validation never touches KMS.
     return lambda: _build_cipher(settings)
 
 
@@ -70,8 +71,12 @@ def get_exchanger() -> OAuthExchanger:
     return HttpxExchanger()
 
 
-def get_discoverer() -> Callable[..., list[str]]:
+def get_ads_discoverer() -> Callable[..., list[str]]:
     return discover_google_ads_customers
+
+
+def get_merchant_discoverer() -> Callable[..., list[str]]:
+    return discover_merchant_accounts
 
 
 def get_revoker() -> Callable[..., bool]:
@@ -85,7 +90,8 @@ class StartReq(BaseModel):
     workspace_id: uuid.UUID
     user_id: uuid.UUID
     nonce: str
-    provider: Literal["google_ads"] = "google_ads"
+    provider: Literal["google_ads", "merchant_center"] = "google_ads"
+    login_hint: str | None = None
 
 
 class CallbackReq(BaseModel):
@@ -95,8 +101,13 @@ class CallbackReq(BaseModel):
     nonce: str
 
 
-@router.post("/google/start")
-def google_start(req: StartReq, settings: Settings = Depends(get_settings)) -> dict:
+def _oauth_start(
+    *,
+    req: StartReq,
+    settings: Settings,
+    scopes: list[str],
+    redirect_uri: str,
+) -> dict:
     state = sign_state(
         {
             "workspace_id": str(req.workspace_id),
@@ -110,11 +121,90 @@ def google_start(req: StartReq, settings: Settings = Depends(get_settings)) -> d
     return {
         "auth_url": build_authorization_url(
             client_id=settings.google_ads_oauth_client_id,
-            redirect_uri=settings.google_ads_oauth_redirect_uri,
-            scopes=SCOPES,
+            redirect_uri=redirect_uri,
+            scopes=scopes,
             state=state,
+            login_hint=req.login_hint,
         )
     }
+
+
+def _oauth_callback(
+    *,
+    req: CallbackReq,
+    settings: Settings,
+    expected_provider: str,
+    redirect_uri: str,
+    store: ConnectionStore,
+    cipher_factory: Callable[[], Any],
+    exchanger: OAuthExchanger,
+    discoverer: Callable[..., list[str]],
+    scopes: list[str],
+    discover_kwargs: dict | None = None,
+) -> dict:
+    try:
+        payload = verify_state(req.state, settings.state_secret, now=int(time.time()))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid state") from None
+
+    if payload.get("nonce") != req.nonce or payload.get("user_id") != str(req.caller_user_id):
+        raise HTTPException(status_code=400, detail="state/session mismatch")
+
+    try:
+        workspace_id = str(uuid.UUID(payload["workspace_id"]))
+        user_id = str(uuid.UUID(payload["user_id"]))
+    except (KeyError, ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="invalid state payload") from None
+    if payload.get("provider") != expected_provider:
+        raise HTTPException(status_code=400, detail="unsupported provider")
+
+    try:
+        token_set = exchanger.exchange(
+            code=req.code,
+            client_id=settings.google_ads_oauth_client_id,
+            client_secret=settings.google_ads_oauth_client_secret,
+            redirect_uri=redirect_uri,
+        )
+        kwargs = {"access_token": token_set.access_token, **(discover_kwargs or {})}
+        accounts = discoverer(**kwargs)
+    except Exception:  # noqa: BLE001 - never surface token/error internals
+        raise HTTPException(status_code=502, detail="failed to complete Google connection") from None
+
+    if not accounts:
+        raise HTTPException(status_code=502, detail="no accessible accounts found")
+
+    cipher = cipher_factory()
+    results = [
+        persist_connection(
+            store=store,
+            cipher=cipher,
+            token_set=token_set,
+            workspace_id=workspace_id,
+            user_id=user_id,
+            provider=expected_provider,
+            external_account_id=acct,
+            scopes=scopes,
+        )
+        for acct in accounts
+    ]
+    sync_mode = "initial" if expected_provider == "google_ads" else "daily"
+    try:
+        enqueue_workspace_sync(workspace_id, mode=sync_mode)
+    except Exception:  # noqa: BLE001 - never fail OAuth on queue errors
+        pass
+    return {"connected": len(results), "connection_ids": [r.connection_id for r in results]}
+
+
+@router.post("/google/start")
+def google_start(req: StartReq, settings: Settings = Depends(get_settings)) -> dict:
+    if req.provider != "google_ads":
+        raise HTTPException(status_code=400, detail="unsupported provider")
+    return _oauth_start(
+        req=req,
+        settings=settings,
+        scopes=ADS_SCOPES,
+        redirect_uri=settings.google_ads_oauth_redirect_uri,
+    )
 
 
 @router.post("/google/callback")
@@ -124,48 +214,60 @@ def google_callback(
     store: ConnectionStore = Depends(get_store),
     cipher_factory: Callable[[], Any] = Depends(get_cipher_factory),
     exchanger: OAuthExchanger = Depends(get_exchanger),
-    discoverer: Callable[..., list[str]] = Depends(get_discoverer),
+    discoverer: Callable[..., list[str]] = Depends(get_ads_discoverer),
 ) -> dict:
-    try:
-        payload = verify_state(req.state, settings.state_secret, now=int(time.time()))
-    except ValueError:
-        raise HTTPException(status_code=400, detail="invalid state") from None
+    return _oauth_callback(
+        req=req,
+        settings=settings,
+        expected_provider="google_ads",
+        redirect_uri=settings.google_ads_oauth_redirect_uri,
+        store=store,
+        cipher_factory=cipher_factory,
+        exchanger=exchanger,
+        discoverer=discoverer,
+        scopes=ADS_SCOPES,
+        discover_kwargs={"developer_token": settings.google_ads_developer_token},
+    )
 
-    # Bind the completing session to the one that started the flow (anti-CSRF +
-    # single-use): the nonce and user must match what was signed at start.
-    if payload.get("nonce") != req.nonce or payload.get("user_id") != str(req.caller_user_id):
-        raise HTTPException(status_code=400, detail="state/session mismatch")
 
-    try:
-        workspace_id = str(uuid.UUID(payload["workspace_id"]))
-        user_id = str(uuid.UUID(payload["user_id"]))
-    except (KeyError, ValueError, TypeError):
-        raise HTTPException(status_code=400, detail="invalid state payload") from None
-    if payload.get("provider") != "google_ads":
+@router.post("/merchant/start")
+def merchant_start(req: StartReq, settings: Settings = Depends(get_settings)) -> dict:
+    if req.provider != "merchant_center":
         raise HTTPException(status_code=400, detail="unsupported provider")
+    redirect_uri = settings.merchant_oauth_redirect_uri
+    if not redirect_uri:
+        raise HTTPException(status_code=500, detail="merchant redirect uri not configured")
+    return _oauth_start(
+        req=req,
+        settings=settings,
+        scopes=MERCHANT_SCOPES,
+        redirect_uri=redirect_uri,
+    )
 
-    try:
-        token_set = exchanger.exchange(
-            code=req.code,
-            client_id=settings.google_ads_oauth_client_id,
-            client_secret=settings.google_ads_oauth_client_secret,
-            redirect_uri=settings.google_ads_oauth_redirect_uri,
-        )
-        customers = discoverer(
-            access_token=token_set.access_token, developer_token=settings.google_ads_developer_token
-        )
-    except Exception:  # noqa: BLE001 - never surface token/error internals
-        raise HTTPException(status_code=502, detail="failed to complete Google connection") from None
 
-    cipher = cipher_factory()
-    results = [
-        persist_connection(
-            store=store, cipher=cipher, token_set=token_set, workspace_id=workspace_id,
-            user_id=user_id, provider="google_ads", external_account_id=cust, scopes=[ADWORDS_SCOPE],
-        )
-        for cust in customers
-    ]
-    return {"connected": len(results), "connection_ids": [r.connection_id for r in results]}
+@router.post("/merchant/callback")
+def merchant_callback(
+    req: CallbackReq,
+    settings: Settings = Depends(get_settings),
+    store: ConnectionStore = Depends(get_store),
+    cipher_factory: Callable[[], Any] = Depends(get_cipher_factory),
+    exchanger: OAuthExchanger = Depends(get_exchanger),
+    discoverer: Callable[..., list[str]] = Depends(get_merchant_discoverer),
+) -> dict:
+    redirect_uri = settings.merchant_oauth_redirect_uri
+    if not redirect_uri:
+        raise HTTPException(status_code=500, detail="merchant redirect uri not configured")
+    return _oauth_callback(
+        req=req,
+        settings=settings,
+        expected_provider="merchant_center",
+        redirect_uri=redirect_uri,
+        store=store,
+        cipher_factory=cipher_factory,
+        exchanger=exchanger,
+        discoverer=discoverer,
+        scopes=MERCHANT_SCOPES,
+    )
 
 
 @router.get("/connections")
@@ -190,7 +292,6 @@ def delete_connection(
     if not store.is_member(workspace_id=ws, user_id=uid):
         raise HTTPException(status_code=403, detail="forbidden")
 
-    # Revoke the Google grant BEFORE destroying the only copy of the token.
     secret = store.get_secret(connection_id=cid, workspace_id=ws)
     if secret is not None:
         ciphertext, key_version = secret

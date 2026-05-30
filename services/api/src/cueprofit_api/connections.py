@@ -179,6 +179,30 @@ class HttpxExchanger:
                 client.close()
 
 
+def discover_merchant_accounts(*, access_token: str) -> list[str]:
+    """List Merchant Center account IDs the granted token can access."""
+    import httpx
+
+    url = "https://merchantapi.googleapis.com/accounts/v1/accounts"
+    resp = httpx.get(
+        url,
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"pageSize": 250},
+        timeout=20,
+    )
+    resp.raise_for_status()
+    ids: list[str] = []
+    for acc in resp.json().get("accounts", []):
+        aid = acc.get("accountId")
+        if not aid:
+            name = acc.get("name", "")
+            if isinstance(name, str) and name.startswith("accounts/"):
+                aid = name.split("/", 1)[1]
+        if aid:
+            ids.append(str(aid))
+    return ids
+
+
 def discover_google_ads_customers(*, access_token: str, developer_token: str, api_version: str = "v22") -> list[str]:
     """List the Google Ads customer IDs the granted token can access.
 

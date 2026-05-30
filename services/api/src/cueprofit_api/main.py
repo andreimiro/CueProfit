@@ -12,6 +12,7 @@ from starlette.responses import JSONResponse
 
 from cueprofit_api.ai_api import router as ai_router
 from cueprofit_api.connect_api import router as connect_router
+from cueprofit_api.sync_api import router as sync_router
 from cueprofit_api.settings import get_settings
 
 settings = get_settings()
@@ -35,6 +36,7 @@ async def reject_untrusted_browser_origins(request: Request, call_next):
 
 
 app.include_router(connect_router)
+app.include_router(sync_router)
 app.include_router(ai_router)
 
 

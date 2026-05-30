@@ -32,14 +32,40 @@ def _require_workspace(args: list[str]) -> str:
     return ws
 
 
+def job_sync_workspace(args: list[str]) -> int:
+    """Run the full workspace pipeline (onboarding or scheduled refresh)."""
+    from cueprofit_workers.pipeline import run_workspace_pipeline
+    from cueprofit_workers.settings import get_settings
+
+    workspace_id = _require_workspace(args)
+    mode = _arg(args, "--mode", "initial")
+    if mode not in ("initial", "daily"):
+        raise SystemExit("--mode must be initial or daily")
+    result = run_workspace_pipeline(workspace_id, mode=mode, settings=get_settings())
+    log.info("sync_workspace workspace=%s mode=%s %s", workspace_id, mode, result)
+    return 0
+
+
+def job_sync_all_workspaces(args: list[str]) -> int:
+    """Run the daily pipeline for every workspace with Google Ads connected."""
+    from cueprofit_workers.sync_all import run_sync_all_workspaces
+    from cueprofit_workers.settings import get_settings
+
+    mode = _arg(args, "--mode", "daily")
+    if mode not in ("initial", "daily"):
+        raise SystemExit("--mode must be initial or daily")
+    result = run_sync_all_workspaces(mode=mode, settings=get_settings())
+    log.info("sync_all_workspaces mode=%s %s", mode, result)
+    if result["workspaces"] == 0:
+        return 0
+    return 0 if result["failed"] == 0 else 1
+
+
 def job_sync_google_ads(args: list[str]) -> int:
     """Auto-discovers ALL connected customers for the workspace and syncs each."""
-    from cueprofit_security import EncryptedToken
-    from google_clients.ads_client import GoogleAdsClient
-
+    from cueprofit_workers.ads_auth import sync_google_ads_connection
     from cueprofit_workers.settings import build_cipher, get_settings
     from cueprofit_workers.stores import SupabaseStatsStore
-    from cueprofit_workers.sync_ads import sync_google_ads
 
     s = get_settings()
     workspace_id = _require_workspace(args)
@@ -51,23 +77,61 @@ def job_sync_google_ads(args: list[str]) -> int:
     connections = store.list_google_ads_connections(workspace_id)
     log.info("sync_google_ads workspace=%s connections=%d kind=%s", workspace_id, len(connections), kind)
     for conn in connections:
+        try:
+            result = sync_google_ads_connection(
+                store=store,
+                settings=s,
+                cipher=cipher,
+                workspace_id=workspace_id,
+                conn=conn,
+                kind=kind,
+                today=today,
+            )
+            log.info("synced customer=%s %s", conn["external_account_id"], result)
+        except Exception as exc:  # noqa: BLE001
+            log.exception("sync_google_ads failed customer=%s: %s", conn.get("external_account_id"), exc)
+    return 0
+
+
+def job_sync_merchant(args: list[str]) -> int:
+    """Sync processed catalog products for all connected Merchant Center accounts."""
+    from cueprofit_security import EncryptedToken
+    from google_clients.merchant_client import MerchantClient
+
+    from cueprofit_workers.settings import build_cipher, get_settings
+    from cueprofit_workers.stores import SupabaseStatsStore
+    from cueprofit_workers.sync_merchant import sync_merchant
+    from cueprofit_workers.tokens import refresh_access_token
+
+    s = get_settings()
+    workspace_id = _require_workspace(args)
+    kind = _arg(args, "--kind", "catalog")
+    store = SupabaseStatsStore(base_url=s.supabase_url, service_role_key=s.supabase_service_role_key)
+    cipher = build_cipher(s)
+
+    connections = store.list_merchant_connections(workspace_id)
+    log.info("sync_merchant workspace=%s connections=%d kind=%s", workspace_id, len(connections), kind)
+    for conn in connections:
         secret = store.get_connection_secret(connection_id=conn["id"], workspace_id=workspace_id)
         if not secret:
             log.warning("no stored secret for connection %s; skipping", conn["id"])
             continue
         refresh_token = cipher.decrypt(EncryptedToken(*secret))
-        ads = GoogleAdsClient(
-            developer_token=s.google_ads_developer_token,
+        access = refresh_access_token(
+            refresh_token=refresh_token,
             client_id=s.google_ads_oauth_client_id,
             client_secret=s.google_ads_oauth_client_secret,
-            refresh_token=refresh_token,
-            login_customer_id=s.google_ads_login_customer_id or None,
         )
-        result = sync_google_ads(
-            store=store, ads_client=ads, workspace_id=workspace_id,
-            customer_id=conn["external_account_id"], kind=kind, connection_id=conn["id"], today=today,
+        merchant = MerchantClient(access_token=access.access_token)
+        result = sync_merchant(
+            store=store,
+            merchant_client=merchant,
+            workspace_id=workspace_id,
+            merchant_id=conn["external_account_id"],
+            kind=kind,
+            connection_id=conn["id"],
         )
-        log.info("synced customer=%s %s", conn["external_account_id"], result)
+        log.info("synced merchant=%s %s", conn["external_account_id"], result)
     return 0
 
 
@@ -127,8 +191,10 @@ def _stub(name: str) -> JobFn:
 
 
 JOBS: dict[str, JobFn] = {
+    "sync_workspace": job_sync_workspace,
+    "sync_all_workspaces": job_sync_all_workspaces,
     "sync_google_ads": job_sync_google_ads,
-    "sync_merchant": _stub("sync_merchant"),          # Merchant API client: follow-up
+    "sync_merchant": job_sync_merchant,
     "resolve_identities": job_resolve_identities,
     "recompute_profit": job_recompute_profit,
     "generate_recommendations": job_generate_recommendations,
