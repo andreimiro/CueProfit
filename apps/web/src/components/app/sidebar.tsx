@@ -6,10 +6,7 @@ import type { ReactNode } from "react";
 
 import { SignOutButton } from "@/components/sign-out-button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import type { WorkspaceSources } from "@/lib/workspace";
-
 import { Icon, type IconName } from "./icons";
-import { WorkspaceSourcesPanel } from "./workspace-sources-panel";
 
 type NavItem = { href: string; label: string; icon: IconName };
 
@@ -20,7 +17,6 @@ const NAV: NavItem[] = [
   { href: "/dashboard/costs", label: "Product costs", icon: "products" },
   { href: "/dashboard/feed-health", label: "Feed health", icon: "feed" },
   { href: "/dashboard/recommendations", label: "Recommendations", icon: "recommendations" },
-  { href: "/dashboard/settings", label: "Settings", icon: "settings" },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -107,24 +103,23 @@ export function MobileNav() {
 export function Sidebar({
   workspaceName,
   userEmail,
-  sources,
 }: {
   workspaceName: string;
   userEmail: string;
-  sources: WorkspaceSources;
 }) {
   const pathname = usePathname();
   const initial = (userEmail.trim()[0] ?? "?").toUpperCase();
+  const settingsActive = isActive(pathname, "/dashboard/settings");
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-edge bg-panel/70 px-4 pb-4 pt-5 backdrop-blur-xl lg:flex">
-      <div className="px-1">
+      <div className="shrink-0 px-1">
         <Brand />
       </div>
 
       <button
         type="button"
-        className="mt-5 flex w-full items-center justify-between rounded-xl border border-edge bg-canvas/60 px-3 py-2.5 text-left transition hover:border-profit/30"
+        className="mt-5 flex w-full shrink-0 items-center justify-between rounded-xl border border-edge bg-canvas/60 px-3 py-2.5 text-left transition hover:border-profit/30"
       >
         <span className="flex min-w-0 items-center gap-2.5">
           <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-profit/15 font-display text-xs font-semibold text-profit">
@@ -135,16 +130,30 @@ export function Sidebar({
         <Icon name="chevronDown" className="shrink-0 text-faint" width={16} height={16} />
       </button>
 
-      <div className="mt-6 px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-faint">
+      <div className="mt-6 shrink-0 px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-faint">
         Workspace
       </div>
-      <div className="mt-2">
+
+      {/* Scrollable nav so Settings + account stay pinned at the bottom at any height */}
+      <div className="-mx-1 mt-2 min-h-0 flex-1 overflow-y-auto px-1">
         <SidebarNav pathname={pathname} />
       </div>
 
-      <WorkspaceSourcesPanel sources={sources} />
+      <div className="shrink-0 space-y-2 pt-3">
+        <Link
+          href="/dashboard/settings"
+          aria-current={settingsActive ? "page" : undefined}
+          className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+            settingsActive ? "bg-profit/12 text-profit" : "text-muted hover:bg-panel-2 hover:text-fg"
+          }`}
+        >
+          <Icon
+            name="settings"
+            className={settingsActive ? "text-profit" : "text-faint transition group-hover:text-fg"}
+          />
+          Settings
+        </Link>
 
-      <div className="mt-auto space-y-3 pt-6">
         <div className="flex items-center gap-3 rounded-xl border border-edge bg-canvas/50 p-2.5">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-panel-2 font-display text-sm font-semibold text-fg">
             {initial}

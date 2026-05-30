@@ -21,11 +21,11 @@ import {
   AddProductCostsButton,
   ConnectGoogleButton,
   ConnectMerchantButton,
-  DateRangePill,
-  SearchField,
 } from "./controls";
+import { DateRangePicker } from "./date-range-picker";
 import { Icon } from "./icons";
 import { PageHeader } from "./page-header";
+import { SearchField } from "./search-field";
 
 const SETUP_STEPS = [
   {
@@ -155,7 +155,7 @@ export function Overview({
           actions={
             <>
               <SearchField />
-              <DateRangePill />
+              <DateRangePicker />
               {!hasGoogleAdsConnection ? <ConnectGoogleButton /> : null}
             </>
           }
@@ -163,17 +163,17 @@ export function Overview({
 
         {/* Setup flow — the clearest path to value */}
         <Panel className="overflow-hidden">
-          <div className="flex flex-col gap-3 border-b border-edge bg-profit/[0.06] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-profit/15 text-profit">
-                <Icon name="spark" width={20} height={20} />
+          <div className="flex flex-col gap-2.5 border-b border-edge bg-profit/[0.06] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="grid h-8 w-8 place-items-center rounded-lg bg-profit/15 text-profit">
+                <Icon name="spark" width={17} height={17} />
               </span>
               <div>
-                <p className="font-display text-base font-semibold">{setupHeadline}</p>
-                <p className="text-sm text-muted">{setupSubline}</p>
+                <p className="font-display text-sm font-semibold">{setupHeadline}</p>
+                <p className="text-xs text-muted">{setupSubline}</p>
               </div>
             </div>
-            <span className="inline-flex w-fit items-center gap-2 rounded-full border border-edge bg-panel px-3 py-1.5 text-xs font-semibold text-muted">
+            <span className="inline-flex w-fit items-center gap-2 rounded-full border border-edge bg-panel px-2.5 py-1 text-[11px] font-semibold text-muted">
               <span className="h-1.5 w-1.5 rounded-full bg-amber" />
               {setupCount} of 3 connected
             </span>
@@ -191,10 +191,10 @@ export function Overview({
                 (isCostsStep && hasProductCosts);
 
               return (
-              <div key={step.n} className="bg-panel p-5">
-                <div className="flex items-center gap-3">
+              <div key={step.n} className="bg-panel p-4">
+                <div className="flex items-center gap-2.5">
                   <span
-                    className={`grid h-7 w-7 place-items-center rounded-full text-sm font-semibold ${
+                    className={`grid h-6 w-6 place-items-center rounded-full text-xs font-semibold ${
                       isDone
                         ? "bg-profit text-on-profit"
                         : isUnlocked
@@ -204,10 +204,10 @@ export function Overview({
                   >
                     {step.n}
                   </span>
-                  <p className="font-medium text-fg">{step.title}</p>
+                  <p className="text-sm font-medium text-fg">{step.title}</p>
                 </div>
-                <p className="mt-2.5 text-sm leading-6 text-muted">{step.desc}</p>
-                <div className="mt-4">
+                <p className="mt-2 text-xs leading-5 text-muted">{step.desc}</p>
+                <div className="mt-3">
                   {isDone ? (
                     connectedLabel
                   ) : isGoogleAdsStep && hasGoogleAdsConnection ? (
@@ -261,7 +261,7 @@ export function Overview({
             <PanelHeader
               title="Daily net profit"
               hint={summary.hasData ? formatMoney(summary.net, summary.currency) : "Spend-weighted contribution by day"}
-              action={<DateRangePill />}
+              action={<DateRangePicker />}
             />
             <div className="relative p-5">
               <div className="flex h-64 items-end gap-2 rounded-xl border border-edge bg-canvas/60 p-4">
@@ -348,7 +348,6 @@ export function Overview({
           <PanelHeader
             title="Campaigns & products"
             hint="Per-source profit, POAS and the action to take"
-            action={<SearchField />}
           />
           <div className="hidden grid-cols-[2fr_1fr_0.7fr_1fr_auto] gap-4 border-b border-edge px-5 py-3 text-xs font-semibold uppercase tracking-wide text-faint sm:grid">
             <span>Source / campaign</span>
