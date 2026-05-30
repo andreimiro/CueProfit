@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 import {
   type AccountFact,
@@ -255,6 +256,24 @@ export function Overview({
           ))}
         </div>
 
+        <div className="grid gap-3 md:grid-cols-3">
+          <MeasurementLink
+            href="/dashboard/attribution"
+            title="Multi-Touch Attribution"
+            detail="Credit campaigns across the full customer journey"
+          />
+          <MeasurementLink
+            href="/dashboard/mmm"
+            title="MMM Model"
+            detail="Estimate channel contribution and saturation"
+          />
+          <MeasurementLink
+            href="/dashboard/incrementality"
+            title="Incrementality Test"
+            detail="Measure profit that would not have happened anyway"
+          />
+        </div>
+
         {/* Chart + recommendations */}
         <div className="grid gap-5 xl:grid-cols-[1.55fr_1fr]">
           <Panel>
@@ -408,6 +427,36 @@ export function Overview({
         </Panel>
       </div>
     </div>
+  );
+}
+
+function MeasurementLink({
+  href,
+  title,
+  detail,
+}: {
+  href: string;
+  title: string;
+  detail: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex min-h-24 items-center justify-between gap-4 rounded-2xl border border-edge bg-panel px-5 py-4 shadow-card transition hover:border-profit/40 hover:bg-panel-2"
+    >
+      <span className="min-w-0">
+        <span className="block font-display text-base font-semibold tracking-tight text-fg">
+          {title}
+        </span>
+        <span className="mt-1 block text-sm leading-5 text-muted">{detail}</span>
+      </span>
+      <Icon
+        name="chevronRight"
+        width={18}
+        height={18}
+        className="shrink-0 text-faint transition group-hover:translate-x-0.5 group-hover:text-profit"
+      />
+    </Link>
   );
 }
 

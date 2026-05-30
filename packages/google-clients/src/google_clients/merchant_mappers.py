@@ -96,6 +96,12 @@ class MerchantCatalogProduct:
 
 
 def map_merchant_product(product: dict[str, Any]) -> MerchantCatalogProduct:
+    if product.get("productAttributes") is not None:
+        return _map_merchant_api_product(product)
+    return _map_content_api_product(product)
+
+
+def _map_merchant_api_product(product: dict[str, Any]) -> MerchantCatalogProduct:
     attrs = product.get("productAttributes") or {}
     price, currency = _price_amount(attrs.get("price"))
     sale_price, sale_currency = _price_amount(attrs.get("salePrice"))
@@ -123,5 +129,44 @@ def map_merchant_product(product: dict[str, Any]) -> MerchantCatalogProduct:
         custom_label_2=attrs.get("customLabel2"),
         custom_label_3=attrs.get("customLabel3"),
         custom_label_4=attrs.get("customLabel4"),
+        raw=product,
+    )
+
+
+def _map_content_api_product(product: dict[str, Any]) -> MerchantCatalogProduct:
+    price_obj = product.get("price") or {}
+    sale_obj = product.get("salePrice") or {}
+    price = Decimal(str(price_obj["value"])).quantize(_MONEY, rounding=ROUND_HALF_UP) if price_obj.get("value") else None
+    sale_price = (
+        Decimal(str(sale_obj["value"])).quantize(_MONEY, rounding=ROUND_HALF_UP)
+        if sale_obj.get("value")
+        else None
+    )
+    currency = price_obj.get("currency") or sale_obj.get("currency")
+    offer_id = product.get("offerId")
+    product_id = product.get("id") or merchant_product_id(product)
+    return MerchantCatalogProduct(
+        merchant_product_id=str(product_id),
+        offer_id=str(offer_id) if offer_id is not None else None,
+        sku=str(offer_id) if offer_id is not None else None,
+        gtin=product.get("gtin"),
+        mpn=product.get("mpn"),
+        title=product.get("title"),
+        brand=product.get("brand"),
+        category=product.get("googleProductCategory"),
+        product_type=_first(product.get("productTypes")),
+        price=price,
+        sale_price=sale_price,
+        currency=currency,
+        availability=product.get("availability"),
+        condition=product.get("condition"),
+        image_url=product.get("imageLink"),
+        landing_url=product.get("link"),
+        status=_processed_status(product),
+        custom_label_0=product.get("customLabel0"),
+        custom_label_1=product.get("customLabel1"),
+        custom_label_2=product.get("customLabel2"),
+        custom_label_3=product.get("customLabel3"),
+        custom_label_4=product.get("customLabel4"),
         raw=product,
     )

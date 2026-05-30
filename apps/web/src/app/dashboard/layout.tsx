@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { Suspense } from "react";
 
 import { Brand, MobileNav, Sidebar } from "@/components/app/sidebar";
+import { ConnectFlash } from "@/components/app/connect-flash";
 import { WorkspaceSourcesCompact } from "@/components/app/workspace-sources-compact";
 import { WorkspaceTopbar } from "@/components/app/workspace-topbar";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -46,6 +48,9 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       {/* Content fills all remaining width to the right of the sidebar */}
       <div className="lg:pl-64">
         <WorkspaceTopbar sources={sources} />
+        <Suspense fallback={null}>
+          <ConnectFlash />
+        </Suspense>
         {children}
       </div>
     </div>

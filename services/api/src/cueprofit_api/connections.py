@@ -180,17 +180,35 @@ class HttpxExchanger:
 
 
 def discover_merchant_accounts(*, access_token: str) -> list[str]:
-    """List Merchant Center account IDs the granted token can access."""
+    """List Merchant Center account IDs the granted token can access.
+
+    Tries the Merchant API first. Many projects get 401 until the GCP project is
+    registered in Merchant Center → Settings → API integration, so we fall back
+    to the Content API ``accounts.authinfo`` endpoint (same ``content`` scope).
+    """
+    ids = _discover_merchant_accounts_via_merchant_api(access_token)
+    if ids:
+        return ids
+    return _discover_merchant_accounts_via_content_authinfo(access_token)
+
+
+def _discover_merchant_accounts_via_merchant_api(access_token: str) -> list[str]:
     import httpx
 
     url = "https://merchantapi.googleapis.com/accounts/v1/accounts"
-    resp = httpx.get(
-        url,
-        headers={"Authorization": f"Bearer {access_token}"},
-        params={"pageSize": 250},
-        timeout=20,
-    )
-    resp.raise_for_status()
+    try:
+        resp = httpx.get(
+            url,
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={"pageSize": 250},
+            timeout=20,
+        )
+        resp.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (401, 403):
+            return []
+        raise
+
     ids: list[str] = []
     for acc in resp.json().get("accounts", []):
         aid = acc.get("accountId")
@@ -201,6 +219,27 @@ def discover_merchant_accounts(*, access_token: str) -> list[str]:
         if aid:
             ids.append(str(aid))
     return ids
+
+
+def _discover_merchant_accounts_via_content_authinfo(access_token: str) -> list[str]:
+    import httpx
+
+    resp = httpx.get(
+        "https://shoppingcontent.googleapis.com/content/v2.1/accounts/authinfo",
+        headers={"Authorization": f"Bearer {access_token}"},
+        timeout=20,
+    )
+    resp.raise_for_status()
+    ids: list[str] = []
+    for item in resp.json().get("accountIdentifiers", []):
+        merchant_id = item.get("merchantId")
+        aggregator_id = item.get("aggregatorId")
+        if merchant_id:
+            ids.append(str(merchant_id))
+        elif aggregator_id:
+            ids.append(str(aggregator_id))
+    # Preserve order, drop duplicates.
+    return list(dict.fromkeys(ids))
 
 
 def discover_google_ads_customers(*, access_token: str, developer_token: str, api_version: str = "v22") -> list[str]:
