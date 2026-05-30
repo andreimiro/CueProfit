@@ -17,9 +17,22 @@ export async function GET(request: Request) {
     .from("workspace_members")
     .select("workspace_id")
     .limit(1);
-  const workspaceId = (memberships?.[0] as { workspace_id?: string } | undefined)?.workspace_id;
+  let workspaceId = (memberships?.[0] as { workspace_id?: string } | undefined)?.workspace_id;
   if (!workspaceId) {
-    return NextResponse.redirect(new URL("/dashboard?connect=no_workspace", request.url));
+    const { data: workspace, error } = await supabase
+      .from("workspaces")
+      .insert({
+        name: "Personal workspace",
+        currency: "RON",
+        created_by: user.id,
+      })
+      .select("id")
+      .single();
+
+    workspaceId = (workspace as { id?: string } | null)?.id;
+    if (error || !workspaceId) {
+      return NextResponse.redirect(new URL("/dashboard?connect=no_workspace", request.url));
+    }
   }
 
   const nonce = crypto.randomUUID();
