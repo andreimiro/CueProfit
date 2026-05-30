@@ -20,6 +20,9 @@ const NAV: NavItem[] = [
   { href: "/dashboard/costs", label: "Product costs", icon: "products" },
   { href: "/dashboard/feed-health", label: "Feed health", icon: "feed" },
   { href: "/dashboard/recommendations", label: "Recommendations", icon: "recommendations" },
+  { href: "/dashboard/attribution", label: "Attribution", icon: "link" },
+  { href: "/dashboard/mmm", label: "MMM model", icon: "trendUp" },
+  { href: "/dashboard/incrementality", label: "Incrementality", icon: "spark" },
   { href: "/dashboard/settings", label: "Settings", icon: "settings" },
 ];
 
