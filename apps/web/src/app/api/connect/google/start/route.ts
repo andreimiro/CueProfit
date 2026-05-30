@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 // Authenticates the user, mints a per-flow nonce (bound into the signed state
@@ -19,7 +20,8 @@ export async function GET(request: Request) {
     .limit(1);
   let workspaceId = (memberships?.[0] as { workspace_id?: string } | undefined)?.workspace_id;
   if (!workspaceId) {
-    const { data: workspace, error } = await supabase
+    const admin = createAdminClient();
+    const { data: workspace, error } = await admin
       .from("workspaces")
       .insert({
         name: "Personal workspace",
@@ -31,6 +33,18 @@ export async function GET(request: Request) {
 
     workspaceId = (workspace as { id?: string } | null)?.id;
     if (error || !workspaceId) {
+      return NextResponse.redirect(new URL("/dashboard?connect=no_workspace", request.url));
+    }
+
+    const { error: memberError } = await admin
+      .from("workspace_members")
+      .upsert({
+        workspace_id: workspaceId,
+        user_id: user.id,
+        role: "owner",
+      });
+
+    if (memberError) {
       return NextResponse.redirect(new URL("/dashboard?connect=no_workspace", request.url));
     }
   }
