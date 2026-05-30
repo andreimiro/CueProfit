@@ -316,3 +316,43 @@ class SupabaseStatsStore:
         finally:
             if self._http is None:
                 client.close()
+
+    # ── recommendation engine reads/writes ─────────────────────────────────
+    def get_thresholds(self, workspace_id: str) -> dict:
+        client = self._client()
+        try:
+            resp = client.get(f"{self._rest}/recommendation_thresholds", params={
+                "workspace_id": f"eq.{workspace_id}", "select": "config",
+            })
+            resp.raise_for_status()
+            rows = resp.json()
+            return rows[0]["config"] if rows else {}
+        finally:
+            if self._http is None:
+                client.close()
+
+    def read_profit_facts(self, workspace_id: str, start: str, end: str) -> list[dict]:
+        client = self._client()
+        try:
+            resp = client.get(f"{self._rest}/profit_daily_facts", params=[
+                ("workspace_id", f"eq.{workspace_id}"), ("date", f"gte.{start}"),
+                ("date", f"lte.{end}"),
+                ("select", "date,entity_type,entity_id,spend,revenue,gross_profit_before_ads,"
+                           "net_profit,poas,net_poas,waste_amount,confidence,currency"),
+            ])
+            resp.raise_for_status()
+            return resp.json()
+        finally:
+            if self._http is None:
+                client.close()
+
+    def upsert_recommendations(self, *, workspace_id: str, rows: list[dict]) -> int:
+        # status/resolved_at omitted from rows on purpose: merge-duplicates leaves
+        # them untouched on refresh, so user acknowledge/dismiss is preserved.
+        client = self._client()
+        try:
+            return self._upsert(client, "recommendations",
+                                "workspace_id,rule_key,entity_type,entity_id,period_start", rows)
+        finally:
+            if self._http is None:
+                client.close()
