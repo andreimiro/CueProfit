@@ -81,8 +81,8 @@ export default function Home() {
             <p className="mb-7 inline-flex border-b border-profit pb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
               Google Ads profit intelligence
             </p>
-            <h1 className="max-w-[16ch] text-[clamp(3.8rem,7.3vw,7.2rem)] font-semibold leading-[0.88] tracking-normal">
-              Profit before the play
+            <h1 className="max-w-[11ch] text-[clamp(4rem,9vw,8.8rem)] font-semibold leading-[0.86] tracking-normal">
+              Know the profit before the play
             </h1>
             <p className="mt-8 max-w-md text-lg leading-7 text-muted">
               CueProfit turns ads, feed quality, and product costs into a clear operating

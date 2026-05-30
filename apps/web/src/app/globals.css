@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* CueProfit product system — semantic tokens */
+/* ── Profit Terminal — semantic tokens (flip between dark & light) ──────── */
 @theme {
   --font-sans: var(--font-body-face), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-display-face), ui-sans-serif, sans-serif;
@@ -21,39 +21,41 @@
   --color-on-profit: var(--c-on-profit);
 }
 
+/* Dark is the default (SSR + no preference) */
 :root,
 .dark {
-  color-scheme: light;
-  --c-canvas: #f4f1e9;
-  --c-panel: #fffcf4;
-  --c-panel-2: #eee8dc;
-  --c-edge: #d8d0c1;
-  --c-fg: #151713;
-  --c-muted: #555d51;
-  --c-faint: #7c8178;
-  --c-profit: #0f8f62;
-  --c-profit-strong: #0a754f;
-  --c-loss: #c04444;
-  --c-signal: #246b55;
-  --c-amber: #b7791f;
-  --c-on-profit: #fffdf6;
+  color-scheme: dark;
+  /* Near-black, neutral surfaces — green is reserved for accents only. */
+  --c-canvas: #08090a;
+  --c-panel: #0e1113;
+  --c-panel-2: #15181b;
+  --c-edge: #24282c;
+  --c-fg: #f2f4f3;
+  --c-muted: #c2c9c7;
+  --c-faint: #97a09c;
+  --c-profit: #34d399;
+  --c-profit-strong: #6ee7b7;
+  --c-loss: #fb7185;
+  --c-signal: #bef264;
+  --c-amber: #fbbf24;
+  --c-on-profit: #04130d;
 }
 
 .light {
   color-scheme: light;
-  --c-canvas: #f4f1e9;
-  --c-panel: #fffcf4;
-  --c-panel-2: #eee8dc;
-  --c-edge: #d8d0c1;
-  --c-fg: #151713;
-  --c-muted: #555d51;
-  --c-faint: #7c8178;
-  --c-profit: #0f8f62;
-  --c-profit-strong: #0a754f;
-  --c-loss: #c04444;
-  --c-signal: #246b55;
-  --c-amber: #b7791f;
-  --c-on-profit: #fffdf6;
+  --c-canvas: #f4f7f5;
+  --c-panel: #ffffff;
+  --c-panel-2: #eef3f0;
+  --c-edge: #dde6e1;
+  --c-fg: #0a1311;
+  --c-muted: #3d4e48;
+  --c-faint: #5c6b65;
+  --c-profit: #059669;
+  --c-profit-strong: #047857;
+  --c-loss: #e11d48;
+  --c-signal: #4d7c0f;
+  --c-amber: #b45309;
+  --c-on-profit: #ffffff;
 }
 
 @layer base {
@@ -70,33 +72,28 @@
   }
   h1, h2, h3 {
     font-family: var(--font-display);
-    letter-spacing: 0;
+    letter-spacing: -0.025em;
     line-height: 1.02;
   }
 }
 
-.bg-paper-grid {
+/* ── Atmosphere (no grid): soft monochromatic glow + grain ─────────────── */
+.bg-ambient {
   background:
-    linear-gradient(color-mix(in oklab, var(--color-edge) 72%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in oklab, var(--color-edge) 72%, transparent) 1px, transparent 1px),
-    radial-gradient(58% 44% at 86% 8%, color-mix(in oklab, var(--color-profit) 10%, transparent), transparent 66%);
-  background-size: 48px 48px, 48px 48px, auto;
-  opacity: 0.58;
+    radial-gradient(48% 40% at 12% 2%, color-mix(in oklab, var(--color-profit) 14%, transparent), transparent 70%),
+    radial-gradient(42% 32% at 92% -6%, color-mix(in oklab, var(--color-signal) 8%, transparent), transparent 70%),
+    radial-gradient(74% 52% at 50% 120%, color-mix(in oklab, var(--color-profit) 6%, transparent), transparent 72%);
 }
 .grain::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.05;
-  mix-blend-mode: multiply;
+  opacity: 0.04;
+  mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 .nums { font-variant-numeric: tabular-nums; }
-
-.shadow-design {
-  box-shadow: 0 44px 90px -64px rgba(21, 23, 19, 0.68);
-}
 
 @keyframes reveal {
   from { opacity: 0; transform: translateY(14px); }

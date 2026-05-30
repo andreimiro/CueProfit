@@ -27,8 +27,8 @@ export const metadata: Metadata = {
     "Profit intelligence for Google Ads & Merchant Center. See true campaign and product profit, wasted spend, feed and tracking issues, and AI-recommended next actions.",
 };
 
-// Runs before paint to set the theme class from storage — avoids a flash.
-const themeInit = `(function(){try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t='light';}document.documentElement.classList.add(t);document.documentElement.style.colorScheme=t;}catch(e){document.documentElement.classList.add('light');}})();`;
+// Runs before paint to set the theme class from storage/system — avoids a flash.
+const themeInit = `(function(){try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';}document.documentElement.classList.add(t);document.documentElement.style.colorScheme=t;}catch(e){document.documentElement.classList.add('dark');}})();`;
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

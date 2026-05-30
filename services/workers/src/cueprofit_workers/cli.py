@@ -84,6 +84,23 @@ def job_resolve_identities(args: list[str]) -> int:
     return 0
 
 
+def job_recompute_profit(args: list[str]) -> int:
+    from cueprofit_workers.dates import plan_date_range
+    from cueprofit_workers.profit import recompute_workspace_profit
+    from cueprofit_workers.settings import get_settings
+    from cueprofit_workers.stores import SupabaseStatsStore
+
+    s = get_settings()
+    workspace_id = _require_workspace(args)
+    start, end = _arg(args, "--start"), _arg(args, "--end")
+    if not (start and end):
+        start, end = plan_date_range("backfill", date.today())  # default: last 90 days
+    store = SupabaseStatsStore(base_url=s.supabase_url, service_role_key=s.supabase_service_role_key)
+    result = recompute_workspace_profit(store=store, workspace_id=workspace_id, start=start, end=end)
+    log.info("recompute_profit workspace=%s range=%s..%s %s", workspace_id, start, end, result)
+    return 0
+
+
 def _stub(name: str) -> JobFn:
     def job(args: list[str]) -> int:
         log.info("job=%s status=stub args=%s", name, args)
@@ -96,7 +113,7 @@ JOBS: dict[str, JobFn] = {
     "sync_google_ads": job_sync_google_ads,
     "sync_merchant": _stub("sync_merchant"),          # Merchant API client: follow-up
     "resolve_identities": job_resolve_identities,
-    "recompute_profit": _stub("recompute_profit"),
+    "recompute_profit": job_recompute_profit,
     "generate_recommendations": _stub("generate_recommendations"),
     "refresh_fx": _stub("refresh_fx"),
     "refresh_tokens": _stub("refresh_tokens"),

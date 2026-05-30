@@ -254,3 +254,65 @@ class SupabaseStatsStore:
         finally:
             if self._http is None:
                 client.close()
+
+    # ── profit recompute reads/writes ──────────────────────────────────────
+    def get_workspace(self, workspace_id: str) -> dict:
+        client = self._client()
+        try:
+            resp = client.get(f"{self._rest}/workspaces", params={
+                "id": f"eq.{workspace_id}",
+                "select": "vat_mode,currency,default_margin_rate,default_vat_rate,"
+                          "default_return_rate,default_validation_rate,default_payment_fee_rate",
+            })
+            resp.raise_for_status()
+            rows = resp.json()
+            return rows[0] if rows else {}
+        finally:
+            if self._http is None:
+                client.close()
+
+    def read_product_stats(self, workspace_id: str, start: str, end: str) -> list[dict]:
+        return self._read_stats("product_daily_stats", workspace_id, start, end,
+                                "date,customer_id,campaign_id,ads_item_id,product_id,spend,conversions,conversion_value,currency")
+
+    def read_campaign_stats(self, workspace_id: str, start: str, end: str) -> list[dict]:
+        return self._read_stats("campaign_daily_stats", workspace_id, start, end,
+                                "date,customer_id,campaign_id,spend,conversions,conversion_value,currency")
+
+    def _read_stats(self, table, workspace_id, start, end, select) -> list[dict]:
+        client = self._client()
+        try:
+            # Two filters on the same column (date) need separate query items.
+            resp = client.get(f"{self._rest}/{table}", params=[
+                ("workspace_id", f"eq.{workspace_id}"), ("date", f"gte.{start}"),
+                ("date", f"lte.{end}"), ("select", select),
+            ])
+            resp.raise_for_status()
+            return resp.json()
+        finally:
+            if self._http is None:
+                client.close()
+
+    def read_product_costs(self, workspace_id: str) -> dict[str, dict]:
+        client = self._client()
+        try:
+            resp = client.get(f"{self._rest}/product_costs", params={
+                "workspace_id": f"eq.{workspace_id}", "product_id": "not.is.null",
+                "select": "product_id,cost_of_goods,shipping_cost,packaging_cost,other_cost,"
+                          "payment_fee_rate,vat_rate,return_rate,validation_rate",
+            })
+            resp.raise_for_status()
+            # NOTE: effective-dating ignored for V1 — last row per product wins.
+            return {r["product_id"]: r for r in resp.json() if r.get("product_id")}
+        finally:
+            if self._http is None:
+                client.close()
+
+    def upsert_profit_facts(self, *, workspace_id: str, rows: list[dict]) -> int:
+        client = self._client()
+        try:
+            return self._upsert(client, "profit_daily_facts",
+                                "workspace_id,date,entity_type,entity_id", rows)
+        finally:
+            if self._http is None:
+                client.close()
