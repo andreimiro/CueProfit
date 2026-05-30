@@ -94,30 +94,85 @@ def compute_profit(inp: ProfitInputs) -> ProfitResult:
 
     adjusted_revenue = net_rev * retention
     variable_cost = cogs_total + payment_fee
+    return _assemble(
+        net_revenue_before_returns=net_rev,
+        adjusted_revenue=adjusted_revenue,
+        variable_cost=variable_cost,
+        ad_spend=inp.ad_spend,
+        gross_revenue=inp.gross_revenue,
+        conversions=inp.conversions,
+    )
+
+
+def compute_profit_from_margin(
+    *,
+    ad_spend: Decimal,
+    gross_revenue: Decimal,
+    margin_rate: Decimal,
+    conversions: Decimal = _ZERO,
+    vat_mode: VatMode = VatMode.UNKNOWN,
+    vat_rate: Decimal = _ZERO,
+    return_rate: Decimal = _ZERO,
+    validation_rate: Decimal = _ONE,
+    payment_fee_rate: Decimal = _ZERO,
+) -> ProfitResult:
+    """Profit from a contribution-MARGIN assumption instead of per-unit costs.
+
+    For aggregate levels (campaign/account) where we have revenue + spend but no
+    per-SKU COGS: gross_profit = adjusted_revenue × margin_rate − payment fees.
+    """
+    if ad_spend < 0:
+        raise ValueError("ad_spend must be >= 0")
+    if gross_revenue < 0:
+        raise ValueError("gross_revenue must be >= 0")
+
+    retention = (_ONE - return_rate) * validation_rate
+    if vat_mode == VatMode.INCLUSIVE:
+        net_rev = gross_revenue / (_ONE + vat_rate)
+    else:
+        net_rev = gross_revenue
+    adjusted_revenue = net_rev * retention
+    payment_fee = payment_fee_rate * net_rev * retention
+    variable_cost = adjusted_revenue * (_ONE - margin_rate) + payment_fee
+    return _assemble(
+        net_revenue_before_returns=net_rev,
+        adjusted_revenue=adjusted_revenue,
+        variable_cost=variable_cost,
+        ad_spend=ad_spend,
+        gross_revenue=gross_revenue,
+        conversions=conversions,
+    )
+
+
+def _assemble(
+    *,
+    net_revenue_before_returns: Decimal,
+    adjusted_revenue: Decimal,
+    variable_cost: Decimal,
+    ad_spend: Decimal,
+    gross_revenue: Decimal,
+    conversions: Decimal,
+) -> ProfitResult:
     gross_profit_before_ads = adjusted_revenue - variable_cost
-    net_profit = gross_profit_before_ads - inp.ad_spend
+    net_profit = gross_profit_before_ads - ad_spend
 
-    spend = inp.ad_spend
-    roas = (inp.gross_revenue / spend) if spend > 0 else None
-    poas = (gross_profit_before_ads / spend) if spend > 0 else None
-    net_poas = (net_profit / spend) if spend > 0 else None
-
+    roas = (gross_revenue / ad_spend) if ad_spend > 0 else None
+    poas = (gross_profit_before_ads / ad_spend) if ad_spend > 0 else None
+    net_poas = (net_profit / ad_spend) if ad_spend > 0 else None
     contribution_margin = (
-        gross_profit_before_ads / inp.gross_revenue if inp.gross_revenue > 0 else None
+        gross_profit_before_ads / gross_revenue if gross_revenue > 0 else None
     )
     break_even_roas = (
-        inp.gross_revenue / gross_profit_before_ads
-        if gross_profit_before_ads > 0
-        else None
+        gross_revenue / gross_profit_before_ads if gross_profit_before_ads > 0 else None
     )
 
-    if inp.conversions == 0:
-        waste = spend
+    if conversions == 0:
+        waste = ad_spend
     else:
         waste = -net_profit if net_profit < 0 else _ZERO
 
     return ProfitResult(
-        net_revenue_before_returns=_money(net_rev),
+        net_revenue_before_returns=_money(net_revenue_before_returns),
         adjusted_revenue=_money(adjusted_revenue),
         variable_cost=_money(variable_cost),
         gross_profit_before_ads=_money(gross_profit_before_ads),

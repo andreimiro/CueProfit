@@ -8,9 +8,11 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from cueprofit_api.connect_api import router as connect_router
 from cueprofit_api.settings import get_settings
 
 app = FastAPI(title="CueProfit API", version="0.0.0")
+app.include_router(connect_router)
 
 
 @app.get("/health")

@@ -15,7 +15,7 @@ def test_core_jobs_are_registered():
 
 
 def test_run_known_job_returns_zero():
-    assert run(["recompute_profit", "--workspace", "abc"]) == 0
+    assert run(["refresh_fx", "--workspace", "abc"]) == 0  # a still-stub job
 
 
 def test_run_unknown_job_raises():

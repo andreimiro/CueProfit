@@ -6,6 +6,7 @@ from profit_engine.core import (
     ProfitResult,
     VatMode,
     compute_profit,
+    compute_profit_from_margin,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "ProfitResult",
     "VatMode",
     "compute_profit",
+    "compute_profit_from_margin",
 ]

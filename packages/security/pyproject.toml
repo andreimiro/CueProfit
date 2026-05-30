@@ -1,0 +1,24 @@
+[project]
+name = "cueprofit-security"
+version = "0.0.0"
+description = "CueProfit security primitives (OAuth token encryption: Cloud KMS + test fake)"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+kms = ["google-cloud-kms>=3.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cueprofit_security"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.uv]
+package = true

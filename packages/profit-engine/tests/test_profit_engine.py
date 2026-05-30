@@ -147,3 +147,49 @@ def test_affiliate_mode_no_vat_no_cogs():
 def test_inputs_reject_negative_spend():
     with pytest.raises(ValueError):
         compute_profit(_inp(ad_spend=D("-1"), gross_revenue=D("10")))
+
+
+# ── compute_profit_from_margin (aggregate / campaign level) ─────────────────
+
+from profit_engine import compute_profit_from_margin  # noqa: E402
+
+
+def test_margin_vat_exclusive():
+    r = compute_profit_from_margin(
+        ad_spend=D("100"), gross_revenue=D("1000"), margin_rate=D("0.30"), conversions=D("10"),
+    )
+    assert r.adjusted_revenue == D("1000.00")
+    assert r.variable_cost == D("700.00")
+    assert r.gross_profit_before_ads == D("300.00")
+    assert r.net_profit == D("200.00")
+    assert r.poas == D("3.0000")
+    assert r.contribution_margin == D("0.3000")
+    assert r.break_even_roas == D("3.3333")
+    assert r.waste_amount == D("0.00")
+
+
+def test_margin_vat_inclusive_with_payment_fee():
+    r = compute_profit_from_margin(
+        ad_spend=D("50"), gross_revenue=D("600"), margin_rate=D("0.5"),
+        vat_mode=VatMode.INCLUSIVE, vat_rate=D("0.20"), payment_fee_rate=D("0.02"), conversions=D("5"),
+    )
+    assert r.net_revenue_before_returns == D("500.00")
+    assert r.gross_profit_before_ads == D("240.00")  # 500*0.5 - 10 fee
+    assert r.variable_cost == D("260.00")
+    assert r.net_profit == D("190.00")
+    assert r.poas == D("4.8000")
+
+
+def test_margin_zero_conversions_is_full_waste():
+    r = compute_profit_from_margin(
+        ad_spend=D("80"), gross_revenue=D("0"), margin_rate=D("0.3"), conversions=D("0"),
+    )
+    assert r.net_profit == D("-80.00")
+    assert r.contribution_margin is None
+    assert r.break_even_roas is None
+    assert r.waste_amount == D("80.00")
+
+
+def test_margin_rejects_negative_spend():
+    with pytest.raises(ValueError):
+        compute_profit_from_margin(ad_spend=D("-1"), gross_revenue=D("10"), margin_rate=D("0.3"))
