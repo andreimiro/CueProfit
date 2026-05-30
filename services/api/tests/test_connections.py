@@ -1,6 +1,9 @@
+from unittest.mock import MagicMock, patch
+
 from cueprofit_api.connections import (
     FakeConnectionStore,
     FakeExchanger,
+    discover_merchant_accounts,
     persist_connection,
     store_google_connection,
 )
@@ -76,3 +79,22 @@ def test_list_and_delete_connection():
     assert store.list_connections("ws1") == []
     # deleting someone else's / unknown returns False
     assert store.delete_connection(connection_id="nope", workspace_id="ws1") is False
+
+
+def test_discover_merchant_accounts_falls_back_to_content_authinfo():
+    merchant_resp = MagicMock(status_code=401)
+    merchant_resp.raise_for_status.side_effect = __import__("httpx").HTTPStatusError(
+        "401", request=MagicMock(), response=merchant_resp
+    )
+    authinfo_resp = MagicMock()
+    authinfo_resp.raise_for_status.return_value = None
+    authinfo_resp.json.return_value = {
+        "accountIdentifiers": [{"merchantId": "123456789"}, {"aggregatorId": "999"}],
+    }
+
+    with patch("httpx.get", side_effect=[merchant_resp, authinfo_resp]) as get:
+        ids = discover_merchant_accounts(access_token="at")
+
+    assert ids == ["123456789", "999"]
+    assert get.call_count == 2
+    assert "accounts/authinfo" in get.call_args_list[1].args[0]
