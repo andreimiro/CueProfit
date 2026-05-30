@@ -1,8 +1,11 @@
 import { Panel, PanelHeader } from "@/components/app/cards";
 import { DataSourceEmpty, GoogleAdsHeaderAction } from "@/components/app/data-source-empty";
+import { DateRangePicker } from "@/components/app/date-range-picker";
 import { PageHeader } from "@/components/app/page-header";
+import { SearchField } from "@/components/app/search-field";
 import { type EntityFact, aggregateEntityFacts, formatMoney } from "@/lib/dashboard";
 import { loadDashboardWorkspace } from "@/lib/dashboard-workspace";
+import { fuzzyMatch, rangeDaysFromParam } from "@/lib/fuzzy";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -10,29 +13,39 @@ export const revalidate = 0;
 
 const COLS = "grid-cols-[2.2fr_1fr_0.7fr_1fr_1fr_0.9fr]";
 
-const COST_BADGE: Record<string, { label: string; cls: string }> = {
-  high: { label: "Exact cost", cls: "border-profit/30 bg-profit/12 text-profit" },
-  medium: { label: "Est. margin", cls: "border-amber/30 bg-amber/12 text-amber" },
-  low: { label: "No cost data", cls: "border-edge bg-panel-2 text-faint" },
+const COST_BADGE: Record<string, { label: string; cls: string; tip: string }> = {
+  high: { label: "Exact cost", cls: "border-profit/30 bg-profit/12 text-profit", tip: "Profit uses this SKU's real cost of goods." },
+  medium: { label: "Est. margin", cls: "border-amber/30 bg-amber/12 text-amber", tip: "No per-SKU cost yet — profit uses the workspace default margin." },
+  low: { label: "No cost data", cls: "border-edge bg-panel-2 text-faint", tip: "No cost or margin set — profit excludes cost of goods." },
 };
 
-export default async function ProductsPage() {
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const sp = await searchParams;
+  const range = typeof sp.range === "string" ? sp.range : undefined;
+  const q = typeof sp.q === "string" ? sp.q : undefined;
+  const days = rangeDaysFromParam(range, 30);
+  const query = (q ?? "").trim();
+
   const { workspaceId, currency, sources } = await loadDashboardWorkspace();
   const supabase = await createClient();
 
-  let rows: ReturnType<typeof aggregateEntityFacts> = [];
+  let allRows: ReturnType<typeof aggregateEntityFacts> = [];
   const titleByItem = new Map<string, string>();
   if (workspaceId) {
-    const since = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
+    const since = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
     const { data } = await supabase
       .from("profit_daily_facts")
       .select("entity_id,spend,revenue,gross_profit_before_ads,net_profit,waste_amount,poas,break_even_roas,confidence,currency")
       .eq("workspace_id", workspaceId)
       .eq("entity_type", "product")
       .gte("date", since);
-    rows = aggregateEntityFacts((data ?? []) as EntityFact[]);
+    allRows = aggregateEntityFacts((data ?? []) as EntityFact[]);
 
-    if (rows.length > 0) {
+    if (allRows.length > 0) {
       // Resolve SKU titles: ads_item_id → product_id (resolver) → products.title,
       // with a direct products.offer_id == ads_item_id fallback.
       const [mapRes, prodRes] = await Promise.all([
@@ -60,7 +73,7 @@ export default async function ProductsPage() {
       for (const m of (mapRes.data ?? []) as { ads_item_id: string; product_id: string | null }[]) {
         if (m.product_id) productIdByItem.set(String(m.ads_item_id), String(m.product_id));
       }
-      for (const row of rows) {
+      for (const row of allRows) {
         const viaMap = productIdByItem.get(row.entityId);
         const title = (viaMap ? titleById.get(viaMap) : undefined) ?? titleByOffer.get(row.entityId);
         if (title) titleByItem.set(row.entityId, title);
@@ -68,20 +81,36 @@ export default async function ProductsPage() {
     }
   }
 
+  const rows = query
+    ? allRows.filter((r) => fuzzyMatch(query, `${titleByItem.get(r.entityId) ?? ""} ${r.entityId}`))
+    : allRows;
+
   return (
     <div className="px-5 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto w-full max-w-[1760px] animate-reveal space-y-7">
         <PageHeader
           title="Products"
           subtitle={`Margin truth per SKU — find the products that lose money after costs · ${currency}`}
-          actions={<GoogleAdsHeaderAction sources={sources} />}
+          actions={
+            <>
+              <SearchField placeholder="Search products…" />
+              <DateRangePicker />
+              <GoogleAdsHeaderAction sources={sources} />
+            </>
+          }
         />
         <Panel className="overflow-hidden">
           <PanelHeader
             title="Products by net profit"
-            hint="Worst performers first. Cost data quality is flagged per SKU."
+            hint={query ? `Matches for “${query}”` : `Worst performers first · cost quality flagged · last ${days} days`}
           />
-          {rows.length > 0 ? (
+          {allRows.length === 0 ? (
+            <DataSourceEmpty sources={sources} source="profit" icon="products" />
+          ) : rows.length === 0 ? (
+            <div className="px-6 py-12 text-center text-sm text-muted">
+              No products match “{query}”.
+            </div>
+          ) : (
             <div className="overflow-x-auto">
               <div className="min-w-[780px]">
                 <div className={`grid ${COLS} gap-4 border-b border-edge px-5 py-3 text-xs font-semibold uppercase tracking-wide text-faint`}>
@@ -107,18 +136,35 @@ export default async function ProductsPage() {
                             <p className="mt-0.5 truncate font-mono text-xs text-faint">{row.entityId}</p>
                           ) : null}
                         </div>
-                        <p className={`text-right font-mono text-sm ${row.net < 0 ? "text-loss" : "text-profit"}`}>
+                        <p
+                          title={`Revenue ${formatMoney(row.revenue, cur)} · Spend ${formatMoney(row.spend, cur)} · Net ${formatMoney(row.net, cur)}`}
+                          className={`cursor-default text-right font-mono text-sm ${row.net < 0 ? "text-loss" : "text-profit"}`}
+                        >
                           {formatMoney(row.net, cur)}
                         </p>
-                        <p className="text-right font-mono text-sm text-muted">
+                        <p
+                          title="Gross profit ÷ ad spend (POAS). 1.00× means gross profit just covers ad spend."
+                          className="cursor-default text-right font-mono text-sm text-muted"
+                        >
                           {row.poas != null ? `${row.poas.toFixed(2)}×` : "—"}
                         </p>
-                        <p className="text-right font-mono text-sm text-muted">
+                        <p
+                          title="The ROAS this SKU needs just to break even, given its margin."
+                          className="cursor-default text-right font-mono text-sm text-muted"
+                        >
                           {row.breakEvenRoas != null ? `${row.breakEvenRoas.toFixed(2)}×` : "—"}
                         </p>
-                        <p className="text-right font-mono text-sm text-muted">{formatMoney(row.spend, cur)}</p>
+                        <p
+                          title={`Ad spend over the last ${days} days`}
+                          className="cursor-default text-right font-mono text-sm text-muted"
+                        >
+                          {formatMoney(row.spend, cur)}
+                        </p>
                         <div className="flex justify-end">
-                          <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${badge.cls}`}>
+                          <span
+                            title={badge.tip}
+                            className={`inline-flex cursor-default items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${badge.cls}`}
+                          >
                             {badge.label}
                           </span>
                         </div>
@@ -128,8 +174,6 @@ export default async function ProductsPage() {
                 </div>
               </div>
             </div>
-          ) : (
-            <DataSourceEmpty sources={sources} source="profit" icon="products" />
           )}
         </Panel>
       </div>

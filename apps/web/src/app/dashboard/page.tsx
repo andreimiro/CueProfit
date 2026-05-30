@@ -8,12 +8,23 @@ import {
   campaignMetaById,
 } from "@/lib/dashboard";
 import { loadDashboardWorkspace } from "@/lib/dashboard-workspace";
+import { fuzzyMatch, rangeDaysFromParam } from "@/lib/fuzzy";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const sp = await searchParams;
+  const range = typeof sp.range === "string" ? sp.range : undefined;
+  const q = typeof sp.q === "string" ? sp.q : undefined;
+  const days = rangeDaysFromParam(range, 30);
+  const query = (q ?? "").trim();
+
   const { workspaceId, currency, sources } = await loadDashboardWorkspace();
   const supabase = await createClient();
 
@@ -23,7 +34,7 @@ export default async function DashboardPage() {
   let campaignMeta = new Map<string, CampaignMeta>();
 
   if (workspaceId) {
-    const since = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
+    const since = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
     const [factsRes, recsRes, campaignFactsRes, statsRes] = await Promise.all([
       supabase
         .from("profit_daily_facts")
@@ -57,6 +68,11 @@ export default async function DashboardPage() {
     campaignMeta = campaignMetaById(statsRes.data ?? []);
   }
 
+  // Search filters only the campaigns/products table (not the account KPIs/chart).
+  const visibleCampaigns = query
+    ? campaignRows.filter((r) => fuzzyMatch(query, campaignMeta.get(r.entityId)?.name ?? r.entityId))
+    : campaignRows;
+
   return (
     <Overview
       currency={currency}
@@ -67,7 +83,7 @@ export default async function DashboardPage() {
       hasProductCosts={sources.hasProductCosts}
       setupCount={sources.setupCount}
       recommendations={recommendations}
-      campaignRows={campaignRows}
+      campaignRows={visibleCampaigns}
       campaignMeta={campaignMeta}
     />
   );
