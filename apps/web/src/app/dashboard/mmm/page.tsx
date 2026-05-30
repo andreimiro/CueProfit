@@ -14,20 +14,58 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const PREVIEW_ROWS = [
+  {
+    channel: "Google Ads",
+    spend: 47200,
+    contribution_revenue: 183600,
+    contribution_profit: 62400,
+    roi: 1.32,
+    saturation_level: "high",
+    recommended_spend_change: -5200,
+    confidence: "medium",
+    currency: null,
+  },
+  {
+    channel: "Meta Ads",
+    spend: 26800,
+    contribution_revenue: 104200,
+    contribution_profit: 31100,
+    roi: 1.16,
+    saturation_level: "medium",
+    recommended_spend_change: 3400,
+    confidence: "medium",
+    currency: null,
+  },
+  {
+    channel: "Email",
+    spend: 4200,
+    contribution_revenue: 61200,
+    contribution_profit: 22800,
+    roi: 5.43,
+    saturation_level: "low",
+    recommended_spend_change: 1200,
+    confidence: "high",
+    currency: null,
+  },
+];
+
 export default async function MmmPage() {
   const { workspaceId, currency } = await loadDashboardWorkspace();
   const supabase = await createClient();
   const data = await loadMmmData(supabase, workspaceId);
+  const rows = data.rows.length ? data.rows : PREVIEW_ROWS;
+  const isPreview = data.rows.length === 0;
   const run = data.run;
-  const rowCurrency = data.rows[0]?.currency ?? currency;
-  const modelFit = metricValue(run, "model_fit");
+  const rowCurrency = rows[0]?.currency ?? currency;
+  const modelFit = metricValue(run, "model_fit") ?? (isPreview ? 0.81 : null);
   const googleRoi =
     metricValue(run, "google_ads_roi") ??
-    data.rows.find((row) => row.channel.toLowerCase().includes("google"))?.roi;
+    rows.find((row) => row.channel.toLowerCase().includes("google"))?.roi;
   const saturation =
     metricValue(run, "saturation_level") ??
-    data.rows.find((row) => row.channel.toLowerCase().includes("google"))?.saturation_level;
-  const weeks = metricValue(run, "data_weeks");
+    rows.find((row) => row.channel.toLowerCase().includes("google"))?.saturation_level;
+  const weeks = metricValue(run, "data_weeks") ?? (isPreview ? 52 : null);
 
   return (
     <MeasurementPage
@@ -36,13 +74,13 @@ export default async function MmmPage() {
       eyebrow="Marketing mix"
       icon="trendUp"
       status={{
-        label: data.error ? "Schema missing" : run?.status === "ready" ? "Ready" : "Needs history",
+        label: data.error ? "Preview" : run?.status === "ready" ? "Ready" : "Preview",
         detail: data.error
-          ? `The MMM tables are not queryable yet: ${data.error}`
+          ? `Preview data is showing until the MMM tables are available. Database response: ${data.error}`
           : run
             ? `Latest MMM run covers ${periodLabel(run)}.`
-            : "MMM needs a clean daily or weekly time series across Google Ads, other channels and business outcomes.",
-        tone: data.error ? "error" : run?.status === "ready" ? "ready" : "pending",
+            : "Preview data is showing. Live values appear after enough weekly channel and profit history is synced.",
+        tone: run?.status === "ready" ? "ready" : "pending",
       }}
       metrics={[
         {
@@ -141,12 +179,12 @@ export default async function MmmPage() {
       <Panel>
         <PanelHeader
           title="Channel contribution"
-          hint={data.rows.length ? "Modeled profit contribution and recommended spend movement" : "No MMM contribution output stored yet"}
+          hint={isPreview ? "Preview rows until the first MMM run is stored" : "Modeled profit contribution and recommended spend movement"}
         />
-        {data.rows.length ? (
+        {rows.length ? (
           <div className="overflow-x-auto">
             <div className="min-w-[780px] divide-y divide-edge">
-              {data.rows.map((row) => (
+              {rows.map((row) => (
                 <div
                   key={row.channel}
                   className="grid grid-cols-[1.25fr_1fr_1fr_0.7fr_0.8fr_0.8fr] items-center gap-4 px-5 py-4 text-sm"

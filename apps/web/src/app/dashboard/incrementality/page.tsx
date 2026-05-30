@@ -14,6 +14,51 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const PREVIEW_ROWS = [
+  {
+    name: "PMax hero SKU geo holdout",
+    status: "ready",
+    test_start: "2026-05-01",
+    test_end: "2026-05-21",
+    holdout_share: 0.15,
+    incremental_revenue: 46200,
+    incremental_profit: 13840,
+    lift_pct: 0.124,
+    confidence_pct: 0.89,
+    payback_days: 9,
+    decision: "scale",
+    currency: null,
+  },
+  {
+    name: "Brand search suppression test",
+    status: "ready",
+    test_start: "2026-04-08",
+    test_end: "2026-04-28",
+    holdout_share: 0.2,
+    incremental_revenue: 8100,
+    incremental_profit: 1180,
+    lift_pct: 0.031,
+    confidence_pct: 0.63,
+    payback_days: 22,
+    decision: "hold",
+    currency: null,
+  },
+  {
+    name: "Shopping clearance product split",
+    status: "ready",
+    test_start: "2026-03-10",
+    test_end: "2026-03-31",
+    holdout_share: 0.18,
+    incremental_revenue: -12400,
+    incremental_profit: -3920,
+    lift_pct: -0.067,
+    confidence_pct: 0.82,
+    payback_days: null,
+    decision: "stop",
+    currency: null,
+  },
+];
+
 function decisionStatus(decision: string | null): "Scale" | "Hold" | "Cap" | "Pause" {
   if (decision === "scale") return "Scale";
   if (decision === "stop") return "Pause";
@@ -25,8 +70,10 @@ export default async function IncrementalityPage() {
   const { workspaceId, currency } = await loadDashboardWorkspace();
   const supabase = await createClient();
   const data = await loadIncrementalityData(supabase, workspaceId);
+  const rows = data.rows.length ? data.rows : PREVIEW_ROWS;
+  const isPreview = data.rows.length === 0;
   const run = data.run;
-  const latest = data.rows[0];
+  const latest = rows[0];
   const lift = metricValue(run, "lift_pct") ?? latest?.lift_pct;
   const confidence = metricValue(run, "confidence_pct") ?? latest?.confidence_pct;
   const holdout = metricValue(run, "holdout_share") ?? latest?.holdout_share;
@@ -39,13 +86,13 @@ export default async function IncrementalityPage() {
       eyebrow="Lift testing"
       icon="spark"
       status={{
-        label: data.error ? "Schema missing" : latest || run?.status === "ready" ? "Ready" : "Needs test",
+        label: data.error ? "Preview" : run?.status === "ready" ? "Ready" : "Preview",
         detail: data.error
-          ? `The incrementality tables are not queryable yet: ${data.error}`
+          ? `Preview data is showing until the incrementality tables are available. Database response: ${data.error}`
           : run
             ? `Latest incrementality run covers ${periodLabel(run)}.`
-            : "Create a test/control definition and collect enough pre/post profit data before lift can be calculated.",
-        tone: data.error ? "error" : latest || run?.status === "ready" ? "ready" : "pending",
+            : "Preview data is showing. Live values appear after a test/control definition and modeled lift results are stored.",
+        tone: run?.status === "ready" ? "ready" : "pending",
       }}
       metrics={[
         {
@@ -144,12 +191,12 @@ export default async function IncrementalityPage() {
       <Panel>
         <PanelHeader
           title="Tests"
-          hint={data.rows.length ? "Latest lift tests and decisions" : "No incrementality tests stored yet"}
+          hint={isPreview ? "Preview tests until the first incrementality result is stored" : "Latest lift tests and decisions"}
         />
-        {data.rows.length ? (
+        {rows.length ? (
           <div className="overflow-x-auto">
             <div className="min-w-[840px] divide-y divide-edge">
-              {data.rows.map((row) => (
+              {rows.map((row) => (
                 <div
                   key={`${row.name}:${row.test_start ?? ""}`}
                   className="grid grid-cols-[1.4fr_0.9fr_0.8fr_0.9fr_0.9fr_0.7fr] items-center gap-4 px-5 py-4 text-sm"

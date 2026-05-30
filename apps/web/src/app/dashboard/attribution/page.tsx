@@ -14,17 +14,58 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const PREVIEW_ROWS = [
+  {
+    entity_name: "Performance Max / Hero SKUs",
+    entity_id: "preview-pmax-hero",
+    dimension: "campaign",
+    touchpoints: 12840,
+    conversions: 286.4,
+    attributed_revenue: 98320,
+    attributed_profit: 24180,
+    assisted_profit: 9120,
+    match_rate: 0.86,
+    currency: null,
+  },
+  {
+    entity_name: "Search / Brand + Category",
+    entity_id: "preview-search-brand",
+    dimension: "campaign",
+    touchpoints: 7460,
+    conversions: 193.8,
+    attributed_revenue: 61400,
+    attributed_profit: 16840,
+    assisted_profit: 5340,
+    match_rate: 0.91,
+    currency: null,
+  },
+  {
+    entity_name: "Shopping / Margin Winners",
+    entity_id: "preview-shopping-margin",
+    dimension: "product",
+    touchpoints: 3920,
+    conversions: 111.2,
+    attributed_revenue: 38210,
+    attributed_profit: 12490,
+    assisted_profit: 4210,
+    match_rate: 0.79,
+    currency: null,
+  },
+];
+
 export default async function AttributionPage() {
   const { workspaceId, currency } = await loadDashboardWorkspace();
   const supabase = await createClient();
   const data = await loadAttributionData(supabase, workspaceId);
+  const rows = data.rows.length ? data.rows : PREVIEW_ROWS;
+  const isPreview = data.rows.length === 0;
   const run = data.run;
-  const rowCurrency = data.rows[0]?.currency ?? currency;
-  const matchedRevenue = metricValue(run, "matched_revenue_rate");
-  const avgTouches = metricValue(run, "avg_touchpoints");
+  const rowCurrency = rows[0]?.currency ?? currency;
+  const matchedRevenue = metricValue(run, "matched_revenue_rate") ?? (isPreview ? 0.86 : null);
+  const avgTouches = metricValue(run, "avg_touchpoints") ?? (isPreview ? 3.4 : null);
   const assistedProfit =
     metricValue(run, "assisted_profit") ??
-    data.rows.reduce((sum, row) => sum + num(row.assisted_profit), 0);
+    rows.reduce((sum, row) => sum + num(row.assisted_profit), 0);
   const unmatched = matchedRevenue == null ? null : 1 - num(matchedRevenue);
 
   return (
@@ -34,13 +75,13 @@ export default async function AttributionPage() {
       eyebrow="Journey model"
       icon="link"
       status={{
-        label: data.error ? "Schema missing" : run?.status === "ready" ? "Ready" : "Needs data",
+        label: data.error ? "Preview" : run?.status === "ready" ? "Ready" : "Preview",
         detail: data.error
-          ? `The attribution tables are not queryable yet: ${data.error}`
+          ? `Preview data is showing until the attribution tables are available. Database response: ${data.error}`
           : run
             ? `Latest attribution run covers ${periodLabel(run)}.`
-            : "Connect Google Ads, capture onsite sessions and import orders before attribution can calculate live credit.",
-        tone: data.error ? "error" : run?.status === "ready" ? "ready" : "pending",
+            : "Preview data is showing. Live values appear after Google Ads, onsite sessions and orders are synced.",
+        tone: run?.status === "ready" ? "ready" : "pending",
       }}
       metrics={[
         {
@@ -139,12 +180,12 @@ export default async function AttributionPage() {
       <Panel>
         <PanelHeader
           title="Top attributed profit"
-          hint={data.rows.length ? "Latest modeled entities by attributed profit" : "No attribution model output stored yet"}
+          hint={isPreview ? "Preview rows until the first attribution model run is stored" : "Latest modeled entities by attributed profit"}
         />
-        {data.rows.length ? (
+        {rows.length ? (
           <div className="overflow-x-auto">
             <div className="min-w-[720px] divide-y divide-edge">
-              {data.rows.map((row) => (
+              {rows.map((row) => (
                 <div
                   key={`${row.dimension}:${row.entity_id}`}
                   className="grid grid-cols-[1.6fr_0.8fr_0.9fr_1fr_1fr] items-center gap-4 px-5 py-4 text-sm"
