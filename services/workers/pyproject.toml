@@ -7,9 +7,9 @@ dependencies = [
     "httpx>=0.27",
     "pydantic-settings>=2.5",
     "cueprofit-profit-engine",
-    "cueprofit-google-clients",
+    "cueprofit-google-clients[ads]",
     "cueprofit-identity-resolver",
-    "cueprofit-security",
+    "cueprofit-security[kms]",
 ]
 
 [project.optional-dependencies]

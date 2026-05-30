@@ -1,5 +1,5 @@
 # Cloud Run service image for the FastAPI API.
-# Build from the REPO ROOT so the profit-engine path dependency is in context:
+# Build from the REPO ROOT so path dependencies are in context:
 #   docker build -f services/api/Dockerfile -t cueprofit-api .
 FROM python:3.12-slim AS base
 ENV PYTHONUNBUFFERED=1 \
@@ -8,8 +8,9 @@ ENV PYTHONUNBUFFERED=1 \
 COPY --from=ghcr.io/astral-sh/uv:0.8 /uv /uvx /bin/
 
 WORKDIR /app
-# Path dependency must be copied before syncing the service.
+# Path dependencies must be copied before syncing the service.
 COPY packages/profit-engine /app/packages/profit-engine
+COPY packages/security /app/packages/security
 COPY services/api /app/services/api
 
 WORKDIR /app/services/api

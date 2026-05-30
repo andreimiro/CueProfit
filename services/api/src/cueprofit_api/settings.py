@@ -29,6 +29,9 @@ class Settings(BaseSettings):
 
     # Shared secret the Next.js BFF uses to call this service.
     python_api_internal_token: str = ""
+    allowed_origins: str = (
+        "https://app.captioncue.shop,https://captioncue.shop,https://captioncue.com"
+    )
 
     # Google data-connection OAuth (our own offline flow)
     google_ads_oauth_client_id: str = ""
@@ -46,6 +49,10 @@ class Settings(BaseSettings):
         if self.app_env == "development":
             return self.python_api_internal_token  # dev convenience only
         raise RuntimeError("OAUTH_STATE_SECRET is required outside development")
+
+    @property
+    def allowed_origin_list(self) -> list[str]:
+        return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
 
 
 @lru_cache

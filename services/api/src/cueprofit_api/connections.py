@@ -179,7 +179,7 @@ class HttpxExchanger:
                 client.close()
 
 
-def discover_google_ads_customers(*, access_token: str, developer_token: str, api_version: str = "v18") -> list[str]:
+def discover_google_ads_customers(*, access_token: str, developer_token: str, api_version: str = "v22") -> list[str]:
     """List the Google Ads customer IDs the granted token can access.
 
     NOTE: verify `api_version` against the pinned google-ads release.

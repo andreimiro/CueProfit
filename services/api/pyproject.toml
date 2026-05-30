@@ -9,7 +9,7 @@ dependencies = [
     "pydantic-settings>=2.5",
     "httpx>=0.27",
     "cueprofit-profit-engine",
-    "cueprofit-security",
+    "cueprofit-security[kms]",
 ]
 
 [project.optional-dependencies]
